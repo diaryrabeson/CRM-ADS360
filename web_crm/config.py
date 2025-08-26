@@ -4,7 +4,7 @@ from datetime import timedelta
 class Config:
     # Configuration de base
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
-    
+    sudo service postgresql start
     # Configuration PostgreSQL
     DB_HOST = os.environ.get('DB_HOST', 'localhost')
     DB_PORT = os.environ.get('DB_PORT', 5432)
