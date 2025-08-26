@@ -1,0 +1,7 @@
+\COPY countries FROM '/home/benounet/Dev_project/CRM-ADS360/web_crm/database/countryInfo.txt'
+WITH (FORMAT text, DELIMITER E'\t', NULL '', ENCODING 'UTF8');
+
+
+\COPY cities FROM '/home/benounet/Dev_project/CRM-ADS360/web_crm/database/cities500.txt'
+WITH (FORMAT text, DELIMITER E'\t', NULL '', ENCODING 'UTF8');
+

@@ -1,0 +1,269 @@
+<!-- ======================================== -->
+<!-- TEMPLATES/BASE.HTML - Template de base (Style Bitrix24) -->
+<!-- ======================================== -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CRM ADS 360{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="main-wrapper">
+        <!-- Sidebar -->
+        {% if current_user %}
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <a href="{{ url_for('index') }}" class="sidebar-logo">
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo">
+                    <span>CRM ADS 360</span>
+                </a>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Principal</div>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+                                <i class="fas fa-home"></i>
+                                <span>Tableau de bord</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">CRM</div>
+                    <ul class="nav flex-column">
+                        {% if has_permission('prospects', 'read') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'prospects' in request.endpoint %}active{% endif %}" href="{{ url_for('prospects.index') }}">
+                                <i class="fas fa-user-tie"></i>
+                                <span>Prospects</span>
+                                {% if pending_prospects_count %}
+                                <span class="nav-badge">{{ pending_prospects_count }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% if has_permission('campaigns', 'read') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'campaigns' in request.endpoint %}active{% endif %}" href="{{ url_for('campaigns.index') }}">
+                                <i class="fas fa-bullhorn"></i>
+                                <span>Campagnes</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% if has_permission('sites', 'read') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'sites' in request.endpoint %}active{% endif %}" href="{{ url_for('sites.index') }}">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>Sites</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">Gestion</div>
+                    <ul class="nav flex-column">
+                        {% if has_permission('stock', 'read') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'stock' in request.endpoint %}active{% endif %}" href="{{ url_for('stock.index') }}">
+                                <i class="fas fa-warehouse"></i>
+                                <span>Stock</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% if has_permission('purchases', 'read') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'purchases' in request.endpoint %}active{% endif %}" href="{{ url_for('purchases.index') }}">
+                                <i class="fas fa-shopping-cart"></i>
+                                <span>Achats</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% if has_permission('projects', 'read') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'projects' in request.endpoint %}active{% endif %}" href="{{ url_for('projects.index') }}">
+                                <i class="fas fa-project-diagram"></i>
+                                <span>Projets</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% if has_permission('hr', 'read') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'hr' in request.endpoint %}active{% endif %}" href="{{ url_for('hr.index') }}">
+                                <i class="fas fa-users-cog"></i>
+                                <span>RH</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% if has_permission('finance', 'read') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'finance' in request.endpoint %}active{% endif %}" href="{{ url_for('finance.index') }}">
+                                <i class="fas fa-chart-line"></i>
+                                <span>Finance</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                
+                {% if has_permission('admin', 'read') %}
+                <div class="nav-section">
+                    <div class="nav-section-title">Administration</div>
+                    <ul class="nav flex-column">
+                        {% if has_permission('admin', 'write') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'admin.settings' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.settings') }}">
+                                <i class="fas fa-cog"></i>
+                                <span>Paramètres</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% if has_permission('admin', 'write') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'admin.users' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.users') }}">
+                                <i class="fas fa-users"></i>
+                                <span>Utilisateurs</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% if has_permission('admin', 'write') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'admin.entities' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.entities') }}">
+                                <i class="fas fa-building"></i>
+                                <span>Entités</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% if has_permission('admin', 'write') %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'admin.roles' in request.endpoint %}active{% endif %}" href="{{ url_for('admin.roles') }}">
+                                <i class="fas fa-shield-alt"></i>
+                                <span>Rôles</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </nav>
+        </aside>
+        {% endif %}
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            {% if current_user %}
+            <!-- Top Bar -->
+            <header class="topbar">
+                <button class="topbar-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                
+                <div class="topbar-search">
+                    <input type="text" placeholder="Rechercher...">
+                    <i class="fas fa-search"></i>
+                </div>
+                
+                <div class="topbar-right">
+                    <div class="topbar-item">
+                        <button class="topbar-icon-btn">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-badge"></span>
+                        </button>
+                    </div>
+                    
+                    <div class="topbar-item">
+                        <button class="topbar-icon-btn">
+                            <i class="fas fa-envelope"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="topbar-item dropdown">
+                        <div class="user-menu" data-bs-toggle="dropdown">
+                            <div class="user-avatar">
+                                {{ current_user.first_name[0] }}{{ current_user.last_name[0] }}
+                            </div>
+                            <div class="user-info">
+                                <span class="user-name">{{ current_user.first_name }} {{ current_user.last_name }}</span>
+                                <span class="user-role">{{ current_user.role_name }}</span>
+                            </div>
+                            <i class="fas fa-chevron-down ms-2"></i>
+                        </div>
+                        
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i> Mon Profil</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.change_password') }}"><i class="fas fa-key me-2"></i> Mot de passe</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="fas fa-sign-out-alt me-2"></i> Déconnexion</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </header>
+            {% endif %}
+            
+            <!-- Page Content -->
+            <div class="page-content">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script>
+        // Toggle Sidebar
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        }
+        
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

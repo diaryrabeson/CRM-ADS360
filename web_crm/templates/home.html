@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM ADS 360 - Gestion Complète de Prospection et Campagnes</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --accent-color: #3b82f6;
+            --light-color: #f3f4f6;
+            --dark-color: #1f2937;
+            --success-color: #10b981;
+            --text-color: #374151;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f9fafb;
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+        
+        header {
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+        }
+        
+        .nav-links a {
+            text-decoration: none;
+            color: var(--dark-color);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+        
+        .login-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .login-btn:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .hero {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 5rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.05)"/></svg>');
+            background-size: cover;
+        }
+        
+        .hero-content {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .hero h1 {
+            font-size: 2.8rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.2;
+        }
+        
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 2.5rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .features {
+            padding: 5rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .section-title {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+        
+        .section-title h2 {
+            font-size: 2.2rem;
+            color: var(--dark-color);
+            margin-bottom: 1rem;
+        }
+        
+        .section-title p {
+            color: #6b7280;
+            max-width: 600px;
+            margin: 0 auto;
+            font-size: 1.1rem;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        
+        .feature-card {
+            background-color: white;
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .feature-icon {
+            background: linear-gradient(135deg, var(--accent-color), var(--primary-color));
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            color: white;
+            font-size: 1.8rem;
+        }
+        
+        .feature-card h3 {
+            margin-bottom: 1rem;
+            color: var(--dark-color);
+            font-size: 1.4rem;
+        }
+        
+        .feature-card p {
+            color: #6b7280;
+            flex-grow: 1;
+        }
+        
+        .feature-list {
+            margin-top: 1rem;
+            list-style-type: none;
+        }
+        
+        .feature-list li {
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        
+        .feature-list li i {
+            color: var(--success-color);
+            margin-top: 0.3rem;
+        }
+        
+        .cta {
+            background-color: var(--light-color);
+            padding: 5rem 2rem;
+            text-align: center;
+        }
+        
+        .cta-content {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        .cta h2 {
+            font-size: 2.2rem;
+            margin-bottom: 1.5rem;
+            color: var(--dark-color);
+        }
+        
+        .cta p {
+            margin-bottom: 2.5rem;
+            color: #6b7280;
+            font-size: 1.1rem;
+        }
+        
+        .demo-btn {
+            background-color: white;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            padding: 0.9rem 2.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .demo-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .client-logos {
+            background-color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+        
+        .client-logos h3 {
+            margin-bottom: 2rem;
+            color: var(--dark-color);
+        }
+        
+        .logos-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 3rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .logo-item {
+            font-weight: 700;
+            color: var(--text-color);
+            padding: 1rem 1.5rem;
+            background-color: var(--light-color);
+            border-radius: 8px;
+        }
+        
+        footer {
+            background-color: var(--dark-color);
+            color: white;
+            padding: 3rem 2rem;
+        }
+        
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+        
+        .footer-section h3 {
+            margin-bottom: 1.5rem;
+            font-size: 1.2rem;
+        }
+        
+        .footer-section p, .footer-section a {
+            opacity: 0.8;
+            margin-bottom: 0.8rem;
+            display: block;
+            color: white;
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+        
+        .footer-section a:hover {
+            opacity: 1;
+        }
+        
+        .copyright {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            opacity: 0.7;
+        }
+        
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+            
+            .demo-btn {
+                margin-right: 0;
+                margin-bottom: 1rem;
+            }
+            
+            .logos-container {
+                gap: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">
+                <i class="fas fa-chart-network"></i>
+                <span>CRM ADS 360</span>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Fonctionnalités</a>
+                <a href="#clients">Clients</a>
+                <a href="#about">À propos</a>
+                <a href="#contact">Contact</a>
+            </div>
+            <button class="login-btn" onclick="window.location.href='/auth/login'">
+                <i class="fas fa-sign-in-alt"></i>
+                Connexion
+            </button>
+        </nav>
+    </header>
+    
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Solution complète de CRM et gestion de prospection</h1>
+            <p>Optimisez votre processus de prospection, gérez vos campagnes publicitaires et maximisez votre retour sur investissement avec ADS 360.</p>
+        </div>
+    </section>
+    
+    <section class="features" id="features">
+        <div class="section-title">
+            <h2>Fonctionnalités principales</h2>
+            <p>Découvrez les modules puissants de notre plateforme CRM</p>
+        </div>
+        
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+                <h3>Gestion des utilisateurs</h3>
+                <p>Super admin avec création de rôles personnalisés, gestion des droits d'accès (lecture, création, modification, suppression, exportation, importation).</p>
+                <ul class="feature-list">
+                    <li><i class="fas fa-check-circle"></i> <span>Création de rôles personnalisés</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Gestion fine des permissions</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Interface adaptable par rôle</span></li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-search-dollar"></i>
+                </div>
+                <h3>Prospection intelligente</h3>
+                <p>Suivi des prospects avec statuts (Nouveau, Contacté, En négociation, Gagné), catégories et relances automatiques.</p>
+                <ul class="feature-list">
+                    <li><i class="fas fa-check-circle"></i> <span>Conversion en clients ou partenaires</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Gestion des responsables</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Historique des conversions</span></li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-bullhorn"></i>
+                </div>
+                <h3>Campagnes publicitaires</h3>
+                <p>Gestion complète des campagnes avec répartition automatique des revenus (70% admin, 30% partenaires selon le nombre de sites).</p>
+                <ul class="feature-list">
+                    <li><i class="fas fa-check-circle"></i> <span>Répartition automatique des revenus</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Configuration des horaires de diffusion</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Upload d'images pour les campagnes</span></li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-store"></i>
+                </div>
+                <h3>Gestion de sites</h3>
+                <p>Organisation hiérarchique des sites par pays, ville et zone. Configuration des horaires d'ouverture et gestion des équipements.</p>
+                <ul class="feature-list">
+                    <li><i class="fas fa-check-circle"></i> <span>Hiérarchie Pays → Ville → Site</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Gestion des transferts d'équipements</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Types de sites personnalisables</span></li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-warehouse"></i>
+                </div>
+                <h3>Gestion de stock</h3>
+                <p>Suivi des équipements dans plusieurs entrepôts, transferts entre sites et entrepôts, inventaire en temps réel.</p>
+                <ul class="feature-list">
+                    <li><i class="fas fa-check-circle"></i> <span>Multi-entrepôts</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Transferts entre sites et entrepôts</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Inventaire en temps réel</span></li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                </div>
+                <h3>Gestion financière</h3>
+                <p>Devis, factures, règlements, suivi des revenus et paiements avec reporting détaillé.</p>
+                <ul class="feature-list">
+                    <li><i class="fas fa-check-circle"></i> <span>Devis et facturation</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Gestion des règlements</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Reporting financier détaillé</span></li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-user-tie"></i>
+                </div>
+                <h3>Ressources Humaines</h3>
+                <p>Recrutement, gestion administrative du personnel, paie, formations et évaluation des performances.</p>
+                <ul class="feature-list">
+                    <li><i class="fas fa-check-circle"></i> <span>Gestion du recrutement</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Administration du personnel</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Évaluation des performances</span></li>
+                </ul>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-project-diagram"></i>
+                </div>
+                <h3>Gestion de projets</h3>
+                <p>Planification, suivi et validation des installations sur les sites avec équipes techniques.</p>
+                <ul class="feature-list">
+                    <li><i class="fas fa-check-circle"></i> <span>Planification des installations</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Suivi des projets</span></li>
+                    <li><i class="fas fa-check-circle"></i> <span>Validation par les équipes techniques</span></li>
+                </ul>
+            </div>
+        </div>
+    </section>
+    
+    <section class="client-logos" id="clients">
+        <h3>Ils nous font confiance</h3>
+        <div class="logos-container">
+            <div class="logo-item">COTISSE TRANSPORT</div>
+            <div class="logo-item">SOATRANS</div>
+            <div class="logo-item">TELMA</div>
+        </div>
+    </section>
+    
+    <section class="cta">
+        <div class="cta-content">
+            <h2>Prêt à transformer votre gestion commerciale?</h2>
+            <p>Rejoignez les entreprises qui optimisent déjà leur processus de prospection et de gestion client avec ADS 360.</p>
+            <button class="demo-btn">
+                <i class="fas fa-desktop"></i>
+                Demander une démo
+            </button>
+        </div>
+    </section>
+    
+    <footer id="contact">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>CRM ADS 360</h3>
+                <p>Solution complète de gestion de la relation client et de prospection commerciale.</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>Contact</h3>
+                <p><i class="fas fa-envelope"></i> contact@crmads360.com</p>
+                <p><i class="fas fa-phone"></i> +261 20 123 4567</p>
+                <p><i class="fas fa-map-marker-alt"></i> Antananarivo, Madagascar</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>Liens rapides</h3>
+                <a href="#features">Fonctionnalités</a>
+                <a href="#clients">Clients</a>
+                <a href="#about">À propos</a>
+                <a href="/auth/login">Connexion</a>
+            </div>
+        </div>
+        
+        <div class="copyright">
+            <p>&copy; 2025 CRM ADS 360. Tous droits réservés.</p>
+        </div>
+    </footer>
+    
+    <script>
+        // Script pour gérer le bouton de connexion
+        document.querySelector('.login-btn').addEventListener('click', function() {
+            window.location.href = '/auth/login';
+        });
+        
+        document.querySelector('.demo-btn').addEventListener('click', function() {
+            alert('Demande de démo envoyée! Notre équipe vous contactera rapidement.');
+        });
+        
+        // Animation au défilement
+        document.addEventListener('DOMContentLoaded', function() {
+            const featureCards = document.querySelectorAll('.feature-card');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = 1;
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, { threshold: 0.1 });
+            
+            featureCards.forEach(card => {
+                card.style.opacity = 0;
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                observer.observe(card);
+            });
+        });
+    </script>
+</body>
+</html>

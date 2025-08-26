@@ -1,0 +1,34 @@
+                        <!-- Adresse principal -->
+                        <div class="col-md-6">
+                            <label class="form-label">Pays *</label>
+                            <select class="form-select" name="country" id="country" required>
+                                <option value="">Sélectionner un pays</option>
+                                <!-- Options chargées depuis la DB -->
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Région *</label>
+                            <select class="form-select" name="region" id="region" required disabled>
+                                <option value="">Sélectionner un pays d'abord</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Ville *</label>
+                            <select class="form-select" name="city" id="city" required disabled>
+                                <option value="">Sélectionner une région d'abord</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Zone/Quartier</label>
+                            <select class="form-select" name="zone" id="zone" disabled>
+                                <option value="">Sélectionner une ville d'abord</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label">Adresse détaillée *</label>
+                            <input type="text" class="form-control" name="address_line" required>
+                        </div>

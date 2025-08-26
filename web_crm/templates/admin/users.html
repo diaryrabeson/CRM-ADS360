@@ -1,0 +1,561 @@
+{% extends "base.html" %}
+
+{% block title %}Utilisateurs - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Gestion des utilisateurs</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Administration</a></li>
+                <li class="breadcrumb-item active">Utilisateurs</li>
+            </ol>
+        </nav>
+    </div>
+    <div>
+        <button class="btn btn-primary" onclick="showUserModal()">
+            <i class="fas fa-plus me-2"></i>Nouvel utilisateur
+        </button>
+    </div>
+</div>
+
+<!-- Alert Container -->
+<div id="alertContainer"></div>
+
+<!-- Search and Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <input type="text" class="form-control" placeholder="Rechercher un utilisateur..." id="searchInput">
+                    <button class="btn btn-outline-secondary" type="button" onclick="searchUsers()">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="row">
+                    <div class="col-6">
+                        <select class="form-select" id="roleFilter" onchange="filterUsers()">
+                            <option value="">Tous les rôles</option>
+                            {% for role in roles %}
+                            <option style="text-transform: capitalize;" value="{{ role.id }}">{{ role.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <select class="form-select" id="statusFilter" onchange="filterUsers()">
+                            <option value="">Tous les statuts</option>
+                            <option value="active">Actif</option>
+                            <option value="inactive">Inactif</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Users Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Liste des utilisateurs</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Nom</th>
+                        <th>Email</th>
+                        <th>Téléphone</th>
+                        <th>Rôle</th>
+                        <th>Entité</th>
+                        <th>Statut</th>
+                        <th>Dernière connexion</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-sm me-2">
+                                    <div class="avatar-title bg-primary text-white rounded-circle">
+                                        {{ user.first_name[0]|upper if user.first_name else 'U' }}{{ user.last_name[0]|upper if user.last_name else 'U' }}
+                                    </div>
+                                </div>
+                                <div>
+                                    <strong>{{ user.first_name }} {{ user.last_name }}</strong>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ user.email }}</td>
+                        <td>{{ user.phone or 'N/A' }}</td>
+                        <td>
+                            <span class="badge badge-warning">{{ user.role_name or 'Aucun' }}</span>
+                        </td>
+                        <td>{{ user.entity_name or 'Aucune' }}</td>
+                        <td>
+                            {% if user.is_active %}
+                            <span class="badge badge-success">Actif</span>
+                            {% else %}
+                            <span class="badge badge-danger">Inactif</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.last_login %}
+                            {{ user.last_login.strftime('%d/%m/%Y %H:%M') }}
+                            {% else %}
+                            Jamais connecté
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-light" onclick="editUser({{ user.id }})" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-light" onclick="resetPassword({{ user.id }})" title="Réinitialiser le mot de passe">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                                {% if user.id != session.user_id %}
+                                <button class="btn btn-light {% if user.is_active %}text-danger{% else %}text-success{% endif %}" 
+                                        onclick="toggleUserStatus({{ user.id }}, {{ user.is_active }})" 
+                                        title="{% if user.is_active %}Désactiver{% else %}Activer{% endif %}">
+                                    <i class="fas {% if user.is_active %}fa-user-slash{% else %}fa-user-check{% endif %}"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- User Modal -->
+<div class="modal fade" id="userModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userModalTitle">Nouvel utilisateur</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <input type="hidden" id="userId" name="user_id">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Prénom *</label>
+                                <input type="text" class="form-control" id="firstName" name="first_name" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Nom *</label>
+                                <input type="text" class="form-control" id="lastName" name="last_name" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Email *</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Téléphone</label>
+                                <input type="tel" class="form-control" id="phone" name="phone">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Mot de passe {% if not userId %}*{% endif %}</label>
+                                <input type="password" class="form-control" id="password" name="password" {% if not userId %}required{% endif %}>
+                                {% if userId %}
+                                <small class="text-muted">Laisser vide pour ne pas modifier</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Rôle *</label>
+                                <select class="form-select" id="roleId" name="role_id" required>
+                                    <option value="">Sélectionner un rôle</option>
+                                    {% for role in roles %}
+                                    <option value="{{ role.id }}">{{ role.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Entité</label>
+                                <select class="form-select" id="entityId" name="entity_id">
+                                    <option value="">Aucune entité</option>
+                                    {% for entity in entities %}
+                                    <option value="{{ entity.id }}">{{ entity.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="isActive" name="is_active" checked>
+                            <label class="form-check-label" for="isActive">Utilisateur actif</label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="mustChangePassword" name="must_change_password" checked>
+                            <label class="form-check-label" for="mustChangePassword">Doit changer le mot de passe à la prochaine connexion</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveUser()">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Réinitialiser le mot de passe</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir réinitialiser le mot de passe de <strong id="resetUserName"></strong> ?</p>
+                <p>Un nouveau mot de passe temporaire sera généré et l'utilisateur devra le changer à sa prochaine connexion.</p>
+                <input type="hidden" id="resetUserId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-warning" onclick="confirmResetPassword()">
+                    <i class="fas fa-key me-2"></i>Réinitialiser
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toggle Status Modal -->
+<div class="modal fade" id="toggleStatusModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="toggleStatusTitle">Changer le statut</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="toggleStatusMessage"></p>
+                <input type="hidden" id="toggleUserId">
+                <input type="hidden" id="toggleUserStatus">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="confirmToggleStatus()">
+                    <i class="fas fa-check me-2"></i>Confirmer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Fonctions pour afficher les modals
+function showUserModal() {
+    // Réinitialiser le formulaire
+    document.getElementById('userForm').reset();
+    document.getElementById('userId').value = '';
+    document.getElementById('userModalTitle').textContent = 'Nouvel utilisateur';
+    document.getElementById('password').required = true;
+    
+    // Afficher le modal
+    const modal = new bootstrap.Modal(document.getElementById('userModal'));
+    modal.show();
+}
+
+function showResetPasswordModal(userId, userName) {
+    document.getElementById('resetUserId').value = userId;
+    document.getElementById('resetUserName').textContent = userName;
+    
+    // Afficher le modal
+    const modal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+    modal.show();
+}
+
+function showToggleStatusModal(userId, userName, isActive) {
+    document.getElementById('toggleUserId').value = userId;
+    document.getElementById('toggleUserStatus').value = isActive;
+    
+    const title = isActive ? 'Désactiver l\'utilisateur' : 'Activer l\'utilisateur';
+    const message = isActive 
+        ? `Êtes-vous sûr de vouloir désactiver l'utilisateur <strong>${userName}</strong> ? Il ne pourra plus se connecter.`
+        : `Êtes-vous sûr de vouloir activer l'utilisateur <strong>${userName}</strong> ?`;
+    
+    document.getElementById('toggleStatusTitle').textContent = title;
+    document.getElementById('toggleStatusMessage').innerHTML = message;
+    
+    // Afficher le modal
+    const modal = new bootstrap.Modal(document.getElementById('toggleStatusModal'));
+    modal.show();
+}
+
+// Fonctions pour gérer les utilisateurs
+function editUser(userId) {
+    fetch(`/admin/users/${userId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Utilisateur non trouvé');
+            }
+            return response.json();
+        })
+        .then(user => {
+            // Remplir les champs du formulaire
+            document.getElementById('userId').value = user.id;
+            document.getElementById('firstName').value = user.first_name || '';
+            document.getElementById('lastName').value = user.last_name || '';
+            document.getElementById('email').value = user.email || '';
+            document.getElementById('phone').value = user.phone || '';
+            document.getElementById('roleId').value = user.role_id || '';
+            document.getElementById('entityId').value = user.entity_id || '';
+            document.getElementById('isActive').checked = user.is_active;
+            document.getElementById('mustChangePassword').checked = user.must_change_password;
+            
+            // Le mot de passe n'est pas requis pour la modification
+            document.getElementById('password').required = false;
+            
+            // Changer le titre du modal
+            document.getElementById('userModalTitle').textContent = 'Modifier l\'utilisateur';
+            
+            // Afficher le modal
+            const modal = new bootstrap.Modal(document.getElementById('userModal'));
+            modal.show();
+        })
+        .catch(error => {
+            showAlert('danger', 'Erreur lors du chargement de l\'utilisateur: ' + error.message);
+            console.error('Error:', error);
+        });
+}
+
+function resetPassword(userId) {
+    const userName = document.querySelector(`tr:has(button[onclick="resetPassword(${userId})"]) td:first-child strong`).textContent;
+    showResetPasswordModal(userId, userName);
+}
+
+function toggleUserStatus(userId, isActive) {
+    const userName = document.querySelector(`tr:has(button[onclick="toggleUserStatus(${userId}, ${isActive})"]) td:first-child strong`).textContent;
+    showToggleStatusModal(userId, userName, isActive);
+}
+
+function saveUser() {
+    const userId = document.getElementById('userId').value;
+    const formData = new FormData(document.getElementById('userForm'));
+    
+    const data = {
+        first_name: formData.get('first_name'),
+        last_name: formData.get('last_name'),
+        email: formData.get('email'),
+        phone: formData.get('phone'),
+        password: formData.get('password'),
+        role_id: formData.get('role_id'),
+        entity_id: formData.get('entity_id'),
+        is_active: document.getElementById('isActive').checked,
+        must_change_password: document.getElementById('mustChangePassword').checked
+    };
+    
+    const url = userId ? `/admin/users/${userId}/update` : '/admin/users/create';
+    const method = userId ? 'POST' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(errorData => {
+                throw new Error(errorData.error || 'Erreur serveur');
+            });
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            showAlert('success', userId ? 'Utilisateur modifié avec succès' : 'Utilisateur créé avec succès');
+            
+            // Fermer le modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('userModal'));
+            modal.hide();
+            
+            // Recharger la page après un court délai
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showAlert('danger', result.error || 'Erreur lors de l\'enregistrement');
+        }
+    })
+    .catch(error => {
+        showAlert('danger', error.message || 'Erreur lors de l\'enregistrement');
+        console.error('Error:', error);
+    });
+}
+
+function confirmResetPassword() {
+    const userId = document.getElementById('resetUserId').value;
+    
+    fetch(`/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(errorData => {
+                throw new Error(errorData.error || 'Erreur serveur');
+            });
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            showAlert('success', 'Mot de passe réinitialisé avec succès');
+            
+            // Fermer le modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal'));
+            modal.hide();
+        } else {
+            showAlert('danger', result.error || 'Erreur lors de la réinitialisation');
+        }
+    })
+    .catch(error => {
+        showAlert('danger', error.message || 'Erreur lors de la réinitialisation');
+        console.error('Error:', error);
+    });
+}
+
+function confirmToggleStatus() {
+    const userId = document.getElementById('toggleUserId').value;
+    const isActive = document.getElementById('toggleUserStatus').value === 'true';
+    
+    fetch(`/admin/users/${userId}/toggle-status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ is_active: !isActive })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(errorData => {
+                throw new Error(errorData.error || 'Erreur serveur');
+            });
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            showAlert('success', `Utilisateur ${!isActive ? 'activé' : 'désactivé'} avec succès`);
+            
+            // Fermer le modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('toggleStatusModal'));
+            modal.hide();
+            
+            // Recharger la page après un court délai
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showAlert('danger', result.error || 'Erreur lors du changement de statut');
+        }
+    })
+    .catch(error => {
+        showAlert('danger', error.message || 'Erreur lors du changement de statut');
+        console.error('Error:', error);
+    });
+}
+
+// Fonctions de recherche et filtrage
+function searchUsers() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('#usersTableBody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+function filterUsers() {
+    const roleFilter = document.getElementById('roleFilter').value;
+    const statusFilter = document.getElementById('statusFilter').value;
+    const rows = document.querySelectorAll('#usersTableBody tr');
+    
+    rows.forEach(row => {
+        const role = row.querySelector('td:nth-child(4)').textContent;
+        const status = row.querySelector('td:nth-child(6)').textContent;
+        
+        const roleMatch = !roleFilter || role.includes(document.querySelector(`#roleFilter option[value="${roleFilter}"]`).textContent);
+        const statusMatch = !statusFilter || 
+            (statusFilter === 'active' && status.includes('Actif')) ||
+            (statusFilter === 'inactive' && status.includes('Inactif'));
+        
+        row.style.display = (roleMatch && statusMatch) ? '' : 'none';
+    });
+}
+
+// Fonction utilitaire pour afficher des alertes
+function showAlert(type, message) {
+    const alertContainer = document.getElementById('alertContainer');
+    const alertId = 'alert-' + Date.now();
+    
+    const alertHTML = `
+        <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    alertContainer.innerHTML = alertHTML;
+    
+    // Supprimer automatiquement l'alerte après 5 secondes
+    setTimeout(() => {
+        const alert = document.getElementById(alertId);
+        if (alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

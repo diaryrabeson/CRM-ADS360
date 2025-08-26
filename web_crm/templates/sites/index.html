@@ -1,0 +1,1320 @@
+{% extends "base.html" %}
+
+{% block title %}Sites - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Gestion des Sites</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item active">Sites</li>
+            </ol>
+        </nav>
+    </div>
+    <div>
+        <button class="btn btn-light me-2" onclick="showMapView()">
+            <i class="fas fa-map me-2"></i>Vue carte
+        </button>
+        <button class="btn btn-light me-2" onclick="exportSites()">
+            <i class="fas fa-download me-2"></i>Exporter
+        </button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#siteModal">
+            <i class="fas fa-plus me-2"></i>Nouveau site
+        </button>
+    </div>
+</div>
+
+<!-- Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="fas fa-map-marker-alt"></i>
+            </div>
+            <div class="stat-value">{{ stats.total_sites }}</div>
+            <div class="stat-label">Total sites</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-value">{{ stats.active_sites }}</div>
+            <div class="stat-label">Sites actifs</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="fas fa-tv"></i>
+            </div>
+            <div class="stat-value">{{ stats.equipped_sites }}</div>
+            <div class="stat-label">Avec équipements</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i class="fas fa-building"></i>
+            </div>
+            <div class="stat-value">{{ stats.partner_sites }}</div>
+            <div class="stat-label">Sites partenaires</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <input type="text" class="form-control" placeholder="Rechercher un site..." id="searchSite">
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" id="filterCountry">
+                    <option value="">Tous les pays</option>
+                    {% for country in countries %}
+                    <option value="{{ country.id }}">{{ country.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" id="filterCity">
+                    <option value="">Toutes les villes</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" id="filterType">
+                    <option value="">Tous les types</option>
+                    <option value="Transport">Transport</option>
+                    <option value="Hôtel">Hôtel</option>
+                    <option value="Restaurant">Restaurant</option>
+                    <option value="Bar">Bar</option>
+                    <option value="Commerce">Commerce</option>
+                    <option value="Bureau">Bureau</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" id="filterPartner">
+                    <option value="">Tous les partenaires</option>
+                    {% for partner in partners %}
+                    <option value="{{ partner.id }}">{{ partner.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-primary w-100" onclick="filterSites()">
+                    <i class="fas fa-filter"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sites Table/Grid Toggle -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5>Liste des sites</h5>
+    <div class="btn-group btn-group-sm">
+        <button class="btn btn-light active" onclick="showTableView()">
+            <i class="fas fa-list"></i>
+        </button>
+        <button class="btn btn-light" onclick="showGridView()">
+            <i class="fas fa-th"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Sites Table View -->
+<div id="tableView" class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>
+                            <input type="checkbox" class="form-check-input" id="selectAll">
+                        </th>
+                        <th>Site</th>
+                        <th>Type</th>
+                        <th>Localisation</th>
+                        <th>Partenaire</th>
+                        <th>Équipements</th>
+                        <th>Capacité</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for site in sites %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="form-check-input site-checkbox" value="{{ site.id }}">
+                        </td>
+                        <td>
+                            <strong>{{ site.name }}</strong><br>
+                            <small class="text-muted">ID: {{ site.id }}</small>
+                        </td>
+                        <td>
+                            <span class="badge badge-primary">{{ site.type }}</span>
+                        </td>
+                        <td>
+                            {{ site.city_name }}, {{ site.country_name }}<br>
+                            <small class="text-muted">{{ site.address }}</small>
+                        </td>
+                        <td>{{ site.entity_name|default('-') }}</td>
+                        <td>
+                            {% if site.equipment_count > 0 %}
+                                <span class="badge badge-success">{{ site.equipment_count }} équipement(s)</span>
+                            {% else %}
+                                <span class="badge badge-secondary">Aucun</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ site.capacity|default('-') }}</td>
+                        <td>
+                            {% if site.is_active %}
+                                <span class="badge badge-success">Actif</span>
+                            {% else %}
+                                <span class="badge badge-danger">Inactif</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-light" onclick="viewSite({{ site.id }})" title="Voir">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-light" onclick="editSite({{ site.id }})" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-light" onclick="manageEquipment({{ site.id }})" title="Équipements">
+                                    <i class="fas fa-tv"></i>
+                                </button>
+                                <button class="btn btn-light" onclick="showPhotos({{ site.id }})" title="Photos">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                                <button class="btn btn-light text-danger" onclick="deleteSite({{ site.id }})" title="Supprimer">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Sites Grid View (Hidden by default) -->
+<div id="gridView" class="row" style="display: none;">
+    {% for site in sites %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">{{ site.name }}</h6>
+                    {% if site.is_active %}
+                        <span class="badge badge-success">Actif</span>
+                    {% else %}
+                        <span class="badge badge-danger">Inactif</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">
+                    <i class="fas fa-tag me-2"></i>{{ site.type }}
+                </p>
+                <p class="mb-2">
+                    <i class="fas fa-map-marker-alt me-2"></i>{{ site.city_name }}, {{ site.country_name }}
+                </p>
+                <p class="mb-2">
+                    <i class="fas fa-building me-2"></i>{{ site.entity_name|default('Non assigné') }}
+                </p>
+                <p class="mb-2">
+                    <i class="fas fa-tv me-2"></i>{{ site.equipment_count }} équipement(s)
+                </p>
+                <p class="mb-0">
+                    <i class="fas fa-users me-2"></i>Capacité: {{ site.capacity|default('N/A') }}
+                </p>
+            </div>
+            <div class="card-footer">
+                <div class="btn-group btn-group-sm w-100">
+                    <button class="btn btn-light" onclick="viewSite({{ site.id }})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-light" onclick="editSite({{ site.id }})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-light" onclick="manageEquipment({{ site.id }})">
+                        <i class="fas fa-tv"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Site Modal -->
+<div class="modal fade" id="siteModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouveau site</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="siteForm">
+                    <!-- Nav tabs -->
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#generalTab">Général</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#locationTab">Localisation</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#hoursTab">Horaires</a>
+                        </li>
+                    </ul>
+                    
+                    <!-- Tab content -->
+                    <div class="tab-content">
+                        <!-- General Tab -->
+                        <div class="tab-pane fade show active" id="generalTab">
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label">Nom du site *</label>
+                                    <input type="text" class="form-control" name="name" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Type *</label>
+                                    <select class="form-select" name="type" required>
+                                        <option value="">Sélectionner</option>
+                                        <option value="Transport">Transport</option>
+                                        <option value="Hôtel">Hôtel</option>
+                                        <option value="Restaurant">Restaurant</option>
+                                        <option value="Bar">Bar</option>
+                                        <option value="Commerce">Commerce</option>
+                                        <option value="Bureau">Bureau</option>
+                                        <option value="Autre">Autre</option>
+                                    </select>
+                                </div>
+                                
+                                <select id="partnerSelect" name="partner">
+                                    <option value="">Sélectionner un partenaire</option>
+                                    {% for partner in partners %}
+                                        <option 
+                                            value="{{ partner.id }}"
+                                            data-country="MG"
+                                            data-address="{{ partner.address | default('') }}"
+                                            data-additional="{{ partner.additional_data | default({}) | tojson | safe }}"
+                                        >
+                                            {{ partner.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="is_active" id="siteActive" checked>
+                                        <label class="form-check-label" for="siteActive">
+                                            Site actif
+                                        </label>
+                                    </div>
+                                </div>
+
+
+                            </div>
+                            <div class="mt-3 text-end">
+                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                                <button type="button" class="btn btn-primary" onclick="nextTab('locationTab')">
+                                    Suivant <i class="fas fa-arrow-right ms-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Location Tab -->
+                        <div class="tab-pane fade" id="locationTab">
+                            <div class="row g-3">
+                                                        <!-- Adresse principal -->
+                            <div class="col-md-6">
+                                <label class="form-label">Pays</label>
+                                <select class="form-select" name="country" id="country" disabled required>
+                                    <option value="">Sélectionner un pays</option>
+                                    <!-- Options chargées par JavaScript -->
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Région *</label>
+                                <select class="form-select" name="region" id="region" required >
+                                    <option value="">Sélectionner un pays d'abord</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Ville *</label>
+                                <select class="form-select" name="city" id="city" required >
+                                    <option value="">Sélectionner une région d'abord</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Zone/Quartier</label>
+                                <select class="form-select" name="zone" id="zone" >
+                                    <option value="">Sélectionner une ville d'abord</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label">Adresse détaillée *</label>
+                                <input type="text" class="form-control" name="address_line" required>
+                            </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Latitude</label>
+                                    <input type="number" class="form-control" name="latitude" step="0.000001" placeholder="-18.8792">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Longitude</label>
+                                    <input type="number" class="form-control" name="longitude" step="0.000001" placeholder="47.5079">
+                                </div>
+                                
+                                <div class="col-12">
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="detectLocation()">
+                                        <i class="fas fa-map-marker-alt me-2"></i>Détecter ma position
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-info ms-2" onclick="showOnMap()">
+                                        <i class="fas fa-map me-2"></i>Voir sur la carte
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-3 d-flex justify-content-between">
+                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                                <button type="button" class="btn btn-light" onclick="prevTab('generalTab')">
+                                    <i class="fas fa-arrow-left me-1"></i> Précédent
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="nextTab('hoursTab')">
+                                    Suivant <i class="fas fa-arrow-right ms-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Hours Tab -->
+                        <div class="tab-pane fade" id="hoursTab">
+                            <div class="opening-hours">
+                                {% set days = [
+                                    {'name': 'Lundi', 'key': 'monday'},
+                                    {'name': 'Mardi', 'key': 'tuesday'},
+                                    {'name': 'Mercredi', 'key': 'wednesday'},
+                                    {'name': 'Jeudi', 'key': 'thursday'},
+                                    {'name': 'Vendredi', 'key': 'friday'},
+                                    {'name': 'Samedi', 'key': 'saturday'},
+                                    {'name': 'Dimanche', 'key': 'sunday'}
+                                ] %}
+                                
+                                {% for day in days %}
+                                <div class="row mb-2 align-items-center">
+                                    <div class="col-md-3">
+                                        <label class="form-label mb-0">{{ day.name }}</label>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="time" class="form-control form-control-sm" 
+                                               name="{{ day.key }}_open" value="08:00">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="time" class="form-control form-control-sm" 
+                                               name="{{ day.key }}_close" value="18:00">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   name="{{ day.key }}_closed" id="{{ day.key }}_closed"
+                                                   onchange="toggleDayHours('{{ day.key }}')">
+                                            <label class="form-check-label" for="{{ day.key }}_closed">
+                                                Fermé
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                                
+                                <div class="mt-3">
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="applyToAll()">
+                                        Appliquer à tous les jours
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-light ms-2" onclick="applyWeekdays()">
+                                        Jours ouvrables
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="mt-3 d-flex justify-content-between">
+                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                                <button type="button" class="btn btn-light" onclick="prevTab('locationTab')">
+                                    <i class="fas fa-arrow-left me-1"></i> Précédent
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="saveSite()">
+                                    <i class="fas fa-save me-2"></i>Enregistrer
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Site Detail Modal -->
+<div class="modal fade" id="siteDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails du site</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="siteDetailContent">
+                    <p><strong>Nom:</strong> <span id="detailName"></span></p>
+                    <p><strong>Type:</strong> <span id="detailType"></span></p>
+                    <p><strong>Partenaire:</strong> <span id="detailPartner"></span></p>
+                    <p><strong>Localisation:</strong> <span id="detailCity"></span>, <span id="detailCountry"></span></p>
+                    <p><strong>Adresse:</strong> <span id="detailAddress"></span></p>
+                    <p><strong>Latitude:</strong> <span id="detailLatitude"></span></p>
+                    <p><strong>Longitude:</strong> <span id="detailLongitude"></span></p>
+                    <p><strong>Capacité:</strong> <span id="detailCapacity"></span></p>
+                    <p><strong>Statut:</strong> <span id="detailStatus"></span></p>
+                    <hr>
+                    <h6>Horaires d’ouverture</h6>
+                    <ul id="detailOpeningHours"></ul>
+                    <hr>
+                    <h6>Équipements installés</h6>
+                    <ul id="detailEquipments"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Equipment Management Modal -->
+<div class="modal fade" id="equipmentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Gestion des équipements</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <button class="btn btn-sm btn-primary" onclick="showInstallEquipment()">
+                        <i class="fas fa-plus me-2"></i>Installer un équipement
+                    </button>
+                </div>
+                
+                <!-- Installed Equipment List -->
+                <div id="site-equipment-list">
+                    <!-- Dynamically loaded -->
+                </div>
+                
+                <!-- Install Equipment Form (Hidden by default) -->
+                <div id="install-equipment-form" style="display: none;">
+                    <hr>
+                    <h6>Installer des équipements</h6>
+                    <form id="installForm">
+                        <input type="hidden" name="site_id" id="equipment_site_id">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Équipement disponible *</label>
+                                <select class="form-select" name="equipment_id" required onchange="updateAvailableQuantity(this)">
+                                    <option value="">Sélectionner un équipement</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Quantité *</label>
+                                <input type="number" class="form-control" name="quantity" id="installQuantity" min="1" value="1" required>
+                                <small id="availableQuantity" class="text-muted">Disponible: -</small>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Date d'installation</label>
+                                <input type="date" class="form-control" name="installation_date" value="{{ today }}">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Notes</label>
+                                <textarea class="form-control" name="notes" rows="2"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <button type="button" class="btn btn-success" onclick="installEquipment()">
+                                    <i class="fas fa-check me-2"></i>Installer
+                                </button>
+                                <button type="button" class="btn btn-light" onclick="hideInstallEquipment()">
+                                    Annuler
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Photos Modal -->
+<div class="modal fade" id="photosModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Photos du site</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="file" class="form-control" id="sitePhotos" multiple accept="image/*">
+                    <small class="text-muted">Formats acceptés : JPG, PNG. Taille max : 5MB par photo</small>
+                </div>
+                
+                <div class="mb-3">
+                    <button class="btn btn-primary" onclick="uploadPhotos()">
+                        <i class="fas fa-upload me-2"></i>Uploader les photos
+                    </button>
+                </div>
+                
+                <!-- Photo Gallery -->
+                <div id="photo-gallery" class="row g-2">
+                    <!-- Photos loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Map View Modal -->
+<div class="modal fade" id="mapModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Carte des sites</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="sitesMap" style="height: 100%;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Sites Management Functions
+function saveSite() {
+    const form = document.getElementById('siteForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    // Format opening hours
+    const openingHours = {};
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    
+    days.forEach(day => {
+        if (data[`${day}_closed`] === 'on') {
+            openingHours[day] = { closed: true };
+        } else {
+            openingHours[day] = {
+                open: data[`${day}_open`] || '08:00',
+                close: data[`${day}_close`] || '18:00'
+            };
+        }
+        // Nettoyer les données
+        delete data[`${day}_open`];
+        delete data[`${day}_close`];
+        delete data[`${day}_closed`];
+    });
+    
+    data.opening_hours = openingHours;
+    data.is_active = data.is_active === 'on';
+    
+    // Convertir les champs vides en null
+    if (!data.latitude) data.latitude = null;
+    if (!data.longitude) data.longitude = null;
+    if (!data.capacity) data.capacity = null;
+    
+    fetch('/sites/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            // Fermer le modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('siteModal'));
+            modal.hide();
+            
+            // Afficher message de succès
+            alert(result.message);
+            
+            // Rediriger vers la page index
+            window.location.href = result.redirect || '/sites';
+        } else {
+            alert('Erreur: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Une erreur est survenue');
+    });
+}
+function viewSite(siteId) {
+    window.location.href = `/sites/${siteId}`;
+}
+
+function editSite(siteId) {
+    fetch(`/sites/${siteId}`)
+        .then(response => response.json())
+        .then(site => {
+            const form = document.getElementById('siteForm');
+            form.dataset.siteId = siteId;
+            
+            // Fill basic fields
+            Object.keys(site).forEach(key => {
+                if (form[key]) {
+                    form[key].value = site[key];
+                }
+            });
+            
+            // Fill opening hours
+            if (site.opening_hours) {
+                Object.keys(site.opening_hours).forEach(day => {
+                    const hours = site.opening_hours[day];
+                    if (hours.closed) {
+                        form[`${day}_closed`].checked = true;
+                    } else {
+                        form[`${day}_open`].value = hours.open;
+                        form[`${day}_close`].value = hours.close;
+                    }
+                });
+            }
+            
+            // Load cities for selected country
+            if (site.country_id) {
+                loadCities(site.country_id, site.city_id);
+            }
+            
+            const modal = new bootstrap.Modal(document.getElementById('siteModal'));
+            modal.show();
+        });
+}
+
+function deleteSite(siteId) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce site ?')) {
+        fetch(`/sites/${siteId}/delete`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function loadCities(countryId, selectedCityId) {
+    const citySelect = document.getElementById('city_select');
+    
+    if (!countryId) {
+        citySelect.innerHTML = '<option value="">Sélectionner d\'abord un pays</option>';
+        return;
+    }
+    
+    fetch(`/api/cities?country_id=${countryId}`)
+        .then(response => response.json())
+        .then(cities => {
+            citySelect.innerHTML = '<option value="">Sélectionner une ville</option>';
+            cities.forEach(city => {
+                const selected = selectedCityId && city.id == selectedCityId ? 'selected' : '';
+                citySelect.innerHTML += `<option value="${city.id}" ${selected}>${city.name}</option>`;
+            });
+        });
+}
+
+function manageEquipment(siteId) {
+    document.getElementById('equipment_site_id').value = siteId;
+    
+    // Load site equipment
+    fetch(`/sites/${siteId}/equipment`)
+        .then(response => response.json())
+        .then(data => {
+            renderEquipmentList(data.equipment);
+            loadAvailableEquipment();
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur de chargement des équipements');
+        });
+    
+    const modal = new bootstrap.Modal(document.getElementById('equipmentModal'));
+    modal.show();
+}
+
+function renderEquipmentList(equipment) {
+    const list = document.getElementById('site-equipment-list');
+    
+    if (equipment.length > 0) {
+        let html = `
+            <h6>Équipements installés</h6>
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Équipement</th>
+                        <th>Type</th>
+                        <th>N° Série</th>
+                        <th>Date installation</th>
+                        <th>Installé par</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        equipment.forEach(eq => {
+            html += `
+                <tr>
+                    <td>${eq.name}</td>
+                    <td>${eq.type}</td>
+                    <td>${eq.serial_number || 'N/A'}</td>
+                    <td>${eq.installation_date ? new Date(eq.installation_date).toLocaleDateString('fr-FR') : 'N/A'}</td>
+                    <td>${eq.installed_by_name || 'N/A'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="removeEquipment(${eq.id})" title="Retirer">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `</tbody></table>`;
+        list.innerHTML = html;
+    } else {
+        list.innerHTML = '<p class="text-muted">Aucun équipement installé sur ce site.</p>';
+    }
+}
+function loadAvailableEquipment() {
+    fetch('/sites/api/equipment/available')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erreur de réseau: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const select = document.querySelector('#installForm select[name="equipment_id"]');
+            select.innerHTML = '<option value="">Sélectionner un équipement</option>';
+            data.forEach(eq => {
+                select.innerHTML += `<option value="${eq.id}">${eq.name} - ${eq.type} (${eq.serial_number || 'N/A'}) - Disponible: ${eq.available_quantity}</option>`;
+            });
+        })
+        .catch(error => {
+            console.error('Erreur détaillée:', error);
+            alert('Erreur de chargement des équipements disponibles: ' + error.message);
+        });
+}
+function showInstallEquipment() {
+    document.getElementById('install-equipment-form').style.display = 'block';
+    document.getElementById('installForm').reset();
+    document.getElementById('installQuantity').value = 1;
+}
+
+function hideInstallEquipment() {
+    document.getElementById('install-equipment-form').style.display = 'none';
+}
+
+function installEquipment() {
+    const form = document.getElementById('installForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    // Validation
+    if (!data.equipment_id) {
+        alert('Veuillez sélectionner un équipement');
+        return;
+    }
+    
+    const quantity = parseInt(data.quantity || 1);
+    if (quantity <= 0) {
+        alert('La quantité doit être supérieure à 0');
+        return;
+    }
+    
+    data.quantity = quantity;
+    
+    fetch('/sites/equipment/install', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert(`${quantity} équipement(s) installé(s) avec succès`);
+            hideInstallEquipment();
+            manageEquipment(data.site_id);
+        } else {
+            alert(result.error || 'Erreur lors de l\'installation.');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur de connexion au serveur');
+    });
+}
+
+function showRemoveEquipmentModal(installationId, equipmentName, currentQuantity) {
+    const quantity = prompt(`Combien d'équipements "${equipmentName}" voulez-vous retirer ?\nQuantité disponible: ${currentQuantity}`, "1");
+    
+    if (quantity === null) return; // Annulation
+    
+    const quantityToRemove = parseInt(quantity);
+    if (isNaN(quantityToRemove) || quantityToRemove <= 0 || quantityToRemove > currentQuantity) {
+        alert(`Quantité invalide. Doit être entre 1 et ${currentQuantity}`);
+        return;
+    }
+    
+    if (confirm(`Retirer ${quantityToRemove} équipement(s) "${equipmentName}" ?`)) {
+        removeEquipment(installationId, quantityToRemove);
+    }
+}
+
+function removeEquipment(installationId, quantity) {
+    fetch(`/sites/equipment/${installationId}/remove`, { 
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ quantity: quantity })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert(`${quantity} équipement(s) retiré(s) avec succès`);
+            const siteId = document.getElementById('equipment_site_id').value;
+            manageEquipment(siteId);
+        } else {
+            alert(result.error || 'Erreur lors de la suppression.');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur de connexion au serveur');
+    });
+}
+
+function updateAvailableQuantity(select) {
+    const equipmentId = select.value;
+    if (!equipmentId) {
+        document.getElementById('availableQuantity').textContent = 'Disponible: -';
+        return;
+    }
+    
+    fetch(`/sites/api/equipment/${equipmentId}/available-quantity`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erreur de réseau: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            document.getElementById('availableQuantity').textContent = `Disponible: ${data.available_quantity}`;
+            document.getElementById('installQuantity').max = data.available_quantity;
+            document.getElementById('installQuantity').value = Math.min(1, data.available_quantity);
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            document.getElementById('availableQuantity').textContent = 'Erreur de chargement';
+        });
+}
+
+
+// Photos
+function showPhotos(siteId) {
+    fetch(`/sites/${siteId}/photos`)
+        .then(res => res.json())
+        .then(data => {
+            const gallery = document.getElementById('photo-gallery');
+            gallery.innerHTML = '';
+            data.forEach(photo => {
+                gallery.innerHTML += `
+                    <div class="col-md-3">
+                        <div class="card">
+                            <img src="${photo.url}" class="card-img-top">
+                            <div class="card-body p-1 text-center">
+                                <button class="btn btn-sm btn-danger" onclick="deletePhoto(${photo.id}, ${siteId})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    
+    const modal = new bootstrap.Modal(document.getElementById('photosModal'));
+    modal.show();
+}
+
+function uploadPhotos() {
+    const input = document.getElementById('sitePhotos');
+    const files = input.files;
+    if (files.length === 0) return;
+
+    const formData = new FormData();
+    for (let file of files) {
+        formData.append('photos', file);
+    }
+    
+    const siteId = document.getElementById('photo-gallery').dataset.siteId;
+    fetch(`/sites/${siteId}/photos/upload`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(result => {
+        if (result.success) {
+            showPhotos(siteId);
+        } else {
+            alert(result.error || 'Erreur lors de l\'upload des photos.');
+        }
+    });
+}
+
+function deletePhoto(photoId, siteId) {
+    if (!confirm('Supprimer cette photo ?')) return;
+    
+    fetch(`/sites/photos/${photoId}/delete`, { method: 'POST' })
+        .then(res => res.json())
+        .then(result => {
+            if (result.success) {
+                showPhotos(siteId);
+            } else {
+                alert(result.error || 'Erreur lors de la suppression.');
+            }
+        });
+}
+
+// Table/Grid View
+function showTableView() {
+    document.getElementById('tableView').style.display = 'block';
+    document.getElementById('gridView').style.display = 'none';
+}
+
+function showGridView() {
+    document.getElementById('tableView').style.display = 'none';
+    document.getElementById('gridView').style.display = 'flex';
+}
+
+// Filters
+function filterSites() {
+    const search = document.getElementById('searchSite').value;
+    const country = document.getElementById('filterCountry').value;
+    const city = document.getElementById('filterCity').value;
+    const type = document.getElementById('filterType').value;
+    const partner = document.getElementById('filterPartner').value;
+
+    let query = `?search=${search}&country=${country}&city=${city}&type=${type}&partner=${partner}`;
+    window.location.href = '/sites' + query;
+}
+</script>
+
+<script>
+function nextTab(tabId) {
+    var tab = document.querySelector('[data-bs-toggle="tab"][href="#' + tabId + '"]');
+    var bsTab = new bootstrap.Tab(tab);
+    bsTab.show();
+}
+
+function prevTab(tabId) {
+    var tab = document.querySelector('[data-bs-toggle="tab"][href="#' + tabId + '"]');
+    var bsTab = new bootstrap.Tab(tab);
+    bsTab.show();
+}
+
+// Ajoutez cette fonction dans votre JavaScript
+function toggleDayHours(day) {
+    const closedCheckbox = document.getElementById(`${day}_closed`);
+    const openInput = document.querySelector(`[name="${day}_open"]`);
+    const closeInput = document.querySelector(`[name="${day}_close"]`);
+    
+    if (closedCheckbox.checked) {
+        openInput.disabled = true;
+        closeInput.disabled = true;
+        openInput.value = '';
+        closeInput.value = '';
+    } else {
+        openInput.disabled = false;
+        closeInput.disabled = false;
+        openInput.value = '08:00';
+        closeInput.value = '18:00';
+    }
+}
+
+// Et aussi ces fonctions pour les boutons d'application
+function applyToAll() {
+    const openTime = document.querySelector('[name="monday_open"]').value;
+    const closeTime = document.querySelector('[name="monday_close"]').value;
+    
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    days.forEach(day => {
+        document.querySelector(`[name="${day}_open"]`).value = openTime;
+        document.querySelector(`[name="${day}_close"]`).value = closeTime;
+        document.getElementById(`${day}_closed`).checked = false;
+        toggleDayHours(day);
+    });
+}
+
+function applyWeekdays() {
+    const openTime = '08:00';
+    const closeTime = '18:00';
+    
+    // Jours ouvrables (lundi à vendredi)
+    const weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    weekdays.forEach(day => {
+        document.querySelector(`[name="${day}_open"]`).value = openTime;
+        document.querySelector(`[name="${day}_close"]`).value = closeTime;
+        document.getElementById(`${day}_closed`).checked = false;
+        toggleDayHours(day);
+    });
+    
+    // Week-end fermé
+    const weekend = ['saturday', 'sunday'];
+    weekend.forEach(day => {
+        document.getElementById(`${day}_closed`).checked = true;
+        toggleDayHours(day);
+    });
+}
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const partnerSelect = document.getElementById("partnerSelect");
+    const countrySelect = document.getElementById("country");
+    const regionSelect = document.getElementById("region");
+    const citySelect = document.getElementById("city");
+    const zoneSelect = document.getElementById("zone");
+    const addressInput = document.querySelector('input[name="address_line"]');
+
+    console.log("Elements loaded:", { partnerSelect, countrySelect, regionSelect, citySelect, zoneSelect });
+
+    // --- Charger les pays au chargement ---
+    fetch("/location/countries")
+        .then(res => {
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            return res.json();
+        })
+        .then(data => {
+            console.log("Countries loaded:", data);
+            data.forEach(c => {
+                const opt = document.createElement("option");
+                opt.value = c.code;
+                opt.textContent = c.name;
+                countrySelect.appendChild(opt);
+            });
+        })
+        .catch(err => console.error("Erreur chargement pays:", err));
+
+    // --- Changement de partenaire ---
+    partnerSelect.addEventListener("change", function() {
+        const selected = this.options[this.selectedIndex];
+        console.log("Partner selected:", selected);
+        
+        if (!selected.value) return;
+
+        const country = selected.dataset.country || "";
+        const address = selected.dataset.address || "";
+        const additional = selected.dataset.additional ? JSON.parse(selected.dataset.additional) : {};
+
+        console.log("Partner data:", { country, address, additional });
+
+        // Remplir l'adresse détaillée
+        addressInput.value = address;
+
+        // Remplir le pays
+        countrySelect.value = country;
+
+        // Si on a des données supplémentaires, charger région/ville
+        if (additional && additional.region_code) {
+            loadRegions(country, additional.region_code, additional.city_id, additional.zone_name);
+        } else if (country) {
+            // Juste charger les régions si on a seulement le pays
+            loadRegions(country);
+        }
+    });
+
+    // --- Fonction pour charger les régions ---
+    function loadRegions(countryCode, selectedRegion = null, selectedCity = null, selectedZone = null) {
+        console.log(`Loading regions for country: ${countryCode}`);
+        
+        fetch(`/location/regions/${countryCode}`)
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                return res.json();
+            })
+            .then(regions => {
+                console.log("Regions loaded:", regions);
+                regionSelect.innerHTML = '<option value="">Sélectionner une région</option>';
+                regions.forEach(r => {
+                    const opt = document.createElement("option");
+                    opt.value = r.code;
+                    opt.textContent = r.name;
+                    if (selectedRegion && r.code === selectedRegion) opt.selected = true;
+                    regionSelect.appendChild(opt);
+                });
+                regionSelect.disabled = false;
+
+                // Si une région est présélectionnée, charger les villes
+                if (selectedRegion) {
+                    loadCities(countryCode, selectedRegion, selectedCity, selectedZone);
+                }
+            })
+            .catch(err => {
+                console.error("Erreur chargement régions:", err);
+                regionSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+            });
+    }
+
+    // --- Fonction pour charger les villes ---
+    function loadCities(countryCode, regionCode, selectedCity = null, selectedZone = null) {
+        console.log(`Loading cities for ${countryCode}/${regionCode}`);
+        
+        fetch(`/location/cities/${countryCode}/${regionCode}`)
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                return res.json();
+            })
+            .then(cities => {
+                console.log("Cities loaded:", cities);
+                citySelect.innerHTML = '<option value="">Sélectionner une ville</option>';
+                cities.forEach(c => {
+                    const opt = document.createElement("option");
+                    opt.value = c.id;
+                    opt.textContent = c.name;
+                    if (selectedCity && c.id == selectedCity) opt.selected = true;
+                    citySelect.appendChild(opt);
+                });
+                citySelect.disabled = false;
+
+                // Si une ville est présélectionnée, remplir la zone
+                if (selectedZone) {
+                    zoneSelect.innerHTML = `<option value="${selectedZone}" selected>${selectedZone}</option>`;
+                    zoneSelect.disabled = false;
+                }
+            })
+            .catch(err => {
+                console.error("Erreur chargement villes:", err);
+                citySelect.innerHTML = '<option value="">Erreur de chargement</option>';
+            });
+    }
+
+    // --- Changement manuel de région ---
+    regionSelect.addEventListener("change", () => {
+        const country = countrySelect.value;
+        const region = regionSelect.value;
+        
+        if (!country || !region) return;
+        
+        loadCities(country, region);
+    });
+
+    // --- Changement manuel de ville ---
+    citySelect.addEventListener("change", () => {
+        zoneSelect.innerHTML = '<option value="">Sélectionner une zone</option>';
+        zoneSelect.disabled = false;
+        
+        const manualOption = document.createElement("option");
+        manualOption.value = "manual";
+        manualOption.textContent = "↳ Saisir manuellement...";
+        zoneSelect.appendChild(manualOption);
+    });
+
+    // --- Saisie manuelle de la zone ---
+    zoneSelect.addEventListener("change", function() {
+        if (this.value === "manual") {
+            const manualZone = prompt("Veuillez saisir le nom de la zone/quartier:");
+            if (manualZone) {
+                const newOption = document.createElement("option");
+                newOption.value = manualZone;
+                newOption.textContent = manualZone;
+                newOption.selected = true;
+                zoneSelect.appendChild(newOption);
+            }
+            this.selectedIndex = 0;
+        }
+    });
+});
+</script>
+
+<script>
+    function viewSite(siteId) {
+    fetch(`/sites/${siteId}`)  // nouvelle route backend
+        .then(response => response.json())
+        .then(site => {
+            document.getElementById('detailName').textContent = site.name;
+            document.getElementById('detailType').textContent = site.type;
+            document.getElementById('detailPartner').textContent = site.entity_name || 'Non assigné';
+            document.getElementById('detailCity').textContent = site.city_name;
+            document.getElementById('detailCountry').textContent = site.country_name;
+            document.getElementById('detailAddress').textContent = site.address;
+            document.getElementById('detailLatitude').textContent = site.latitude || 'N/A';
+            document.getElementById('detailLongitude').textContent = site.longitude || 'N/A';
+            document.getElementById('detailCapacity').textContent = site.capacity || 'N/A';
+            document.getElementById('detailStatus').textContent = site.is_active ? 'Actif' : 'Inactif';
+            
+            // Horaires
+            const openingHoursEl = document.getElementById('detailOpeningHours');
+            openingHoursEl.innerHTML = '';
+            for (const [day, hours] of Object.entries(site.opening_hours || {})) {
+                const li = document.createElement('li');
+                if (hours.closed) {
+                    li.textContent = `${capitalize(day)}: Fermé`;
+                } else {
+                    li.textContent = `${capitalize(day)}: ${hours.open} - ${hours.close}`;
+                }
+                openingHoursEl.appendChild(li);
+            }
+
+            // Équipements
+            const equipmentEl = document.getElementById('detailEquipments');
+            equipmentEl.innerHTML = '';
+            if (site.equipment && site.equipment.length > 0) {
+                site.equipment.forEach(eq => {
+                    const li = document.createElement('li');
+                    li.textContent = `${eq.name} (${eq.type}) - N° Série: ${eq.serial_number || 'N/A'}`;
+                    equipmentEl.appendChild(li);
+                });
+            } else {
+                equipmentEl.innerHTML = '<li>Aucun équipement installé</li>';
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('siteDetailModal'));
+            modal.show();
+        })
+        .catch(err => {
+            console.error('Erreur chargement détails site:', err);
+            alert('Impossible de charger les détails du site');
+        });
+}
+
+// Capitalize helper
+function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+</script>
+
+{% endblock %}

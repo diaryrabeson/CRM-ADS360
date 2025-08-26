@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Présences - RH{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('hr.index') }}">Accueil RH</a></li>
+<li class="breadcrumb-item active">Présences</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="page-title">Présences du {{ today.strftime('%d/%m/%Y') }}</h1>
+        <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('hr.index') }}">RH</a></li>
+            <li class="breadcrumb-item active">Présences</li>
+        </ol>
+        </nav>
+
+    <!-- Tableau des présences -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Présences enregistrées</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if today_attendance %}
+            <table class="table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Employé</th>
+                        <th>Code</th>
+                        <th>Heure d'arrivée</th>
+                        <th>Heure de départ</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for att in today_attendance %}
+                    <tr>
+                        <td>{{ att.employee_name }}</td>
+                        <td>{{ att.employee_code }}</td>
+                        <td>{{ att.check_in_time or '-' }}</td>
+                        <td>{{ att.check_out_time or '-' }}</td>
+                        <td>{{ att.status or 'Présent' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="p-3">Aucune présence enregistrée pour aujourd'hui.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Tableau des absents -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Employés sans pointage</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if missing_attendance %}
+            <table class="table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Employé</th>
+                        <th>Code</th>
+                        <th>Contrat actif</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in missing_attendance %}
+                    <tr>
+                        <td>{{ emp.full_name }}</td>
+                        <td>{{ emp.employee_code }}</td>
+                        <td>
+                            {% if emp.contract_end_date is none or emp.contract_end_date > today %}
+                                Oui
+                            {% else %}
+                                Non
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="p-3">Tous les employés ont pointé aujourd'hui.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

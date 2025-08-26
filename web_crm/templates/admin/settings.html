@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block title %}Paramètres système - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <h1 class="page-title">Paramètres système</h1>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Administration</a></li>
+            <li class="breadcrumb-item active">Paramètres</li>
+        </ol>
+    </nav>
+</div>
+
+<!-- Settings Tabs -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="list-group">
+            <a href="#general" class="list-group-item list-group-item-action active" data-bs-toggle="list">
+                <i class="fas fa-cog me-2"></i>Général
+            </a>
+            <a href="#appearance" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                <i class="fas fa-palette me-2"></i>Apparence
+            </a>
+            <a href="#email" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                <i class="fas fa-envelope me-2"></i>Email
+            </a>
+            <a href="#security" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                <i class="fas fa-shield-alt me-2"></i>Sécurité
+            </a>
+            <a href="#backup" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                <i class="fas fa-database me-2"></i>Sauvegarde
+            </a>
+            <a href="#api" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                <i class="fas fa-plug me-2"></i>API
+            </a>
+        </div>
+    </div>
+    
+    <div class="col-md-9">
+        <div class="tab-content">
+            <!-- General Settings -->
+            <div class="tab-pane fade show active" id="general">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Paramètres généraux</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="generalSettingsForm">
+                            <div class="mb-3">
+                                <label class="form-label">Nom de l'application</label>
+                                <input type="text" class="form-control" name="app_name" value="CRM ADS 360">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">URL du site</label>
+                                <input type="url" class="form-control" name="site_url" value="https://crm.ads360.mg">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Fuseau horaire</label>
+                                <select class="form-select" name="timezone">
+                                    <option value="Africa/Nairobi">Africa/Nairobi (GMT+3)</option>
+                                    <option value="Europe/Paris">Europe/Paris (GMT+1)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Langue par défaut</label>
+                                <select class="form-select" name="default_language">
+                                    <option value="fr">Français</option>
+                                    <option value="en">English</option>
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="saveSettings('general')">
+                                <i class="fas fa-save me-2"></i>Enregistrer
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Appearance Settings -->
+            <div class="tab-pane fade" id="appearance">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Personnalisation de l'apparence</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="appearanceSettingsForm">
+                            <div class="mb-3">
+                                <label class="form-label">Logo de l'application</label>
+                                <input type="file" class="form-control" name="app_logo" accept="image/*">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Couleur principale</label>
+                                <input type="color" class="form-control form-control-color" name="primary_color" value="#0F7BFF">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Thème</label>
+                                <select class="form-select" name="theme">
+                                    <option value="light">Clair</option>
+                                    <option value="dark">Sombre</option>
+                                    <option value="auto">Automatique</option>
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="saveSettings('appearance')">
+                                <i class="fas fa-save me-2"></i>Enregistrer
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    const UserManager = {
+    init() {
+        this.setupEventListeners();
+        this.loadUsers();
+    },
+    
+    setupEventListeners() {
+        // Search
+        const searchInput = document.getElementById('searchUser');
+        if (searchInput) {
+            searchInput.addEventListener('input', debounce(() => this.filterUsers(), 300));
+        }
+        
+        // Filters
+        ['filterRole', 'filterEntity', 'filterStatus'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('change', () => this.filterUsers());
+            }
+        });
+        
+        // Select all checkbox
+        const selectAll = document.getElementById('selectAll');
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                document.querySelectorAll('.user-checkbox').forEach(cb => {
+                    cb.checked = this.checked;
+                });
+            });
+        }
+    },
+    
+    loadUsers() {
+        fetch('/admin/users/list')
+            .then(response => response.json())
+            .then(users => {
+                this.renderUsers(users);
+            });
+    },
+    
+    renderUsers(users) {
+        const tbody = document.querySelector('#usersTable tbody');
+        if (!tbody) return;
+        
+        tbody.innerHTML = users.map(user => `
+            <tr data-user-id="${user.id}">
+                <td>
+                    <input type="checkbox" class="form-check-input user-checkbox" value="${user.id}">
+                </td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="avatar avatar-sm me-3">
+                            ${user.first_name[0]}${user.last_name[0]}
+                        </div>
+                        <div>
+                            <strong>${user.first_name} ${user.last_name}</strong><br>
+                            <small class="text-muted">ID: ${user.id}</small>
+                        </div>
+                    </div>
+                </td>
+                <td>${user.email}</td>
+                <td>
+                    <span class="badge badge-primary">${user.role_name}</span>
+                </td>
+                <td>${user.entity_name || '-'}</td>
+                <td>
+                    ${user.is_active 
+                        ? '<span class="badge badge-success">Actif</span>' 
+                        : '<span class="badge badge-danger">Inactif</span>'}
+                </td>
+                <td>${user.last_login ? formatDateTime(user.last_login) : 'Jamais'}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-light" onclick="UserManager.editUser(${user.id})" title="Modifier">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-light" onclick="UserManager.resetPassword(${user.id})" title="Réinitialiser">
+                            <i class="fas fa-key"></i>
+                        </button>
+                        <button class="btn btn-light text-danger" onclick="UserManager.deleteUser(${user.id})" title="Supprimer">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    },
+    
+    filterUsers() {
+        const search = document.getElementById('searchUser').value.toLowerCase();
+        const role = document.getElementById('filterRole').value;
+        const entity = document.getElementById('filterEntity').value;
+        const status = document.getElementById('filterStatus').value;
+        
+        document.querySelectorAll('#usersTable tbody tr').forEach(row => {
+            let show = true;
+            
+            // Search filter
+            if (search && !row.textContent.toLowerCase().includes(search)) {
+                show = false;
+            }
+            
+            // Role filter
+            if (role) {
+                const roleCell = row.querySelector('td:nth-child(4) .badge');
+                if (!roleCell || !roleCell.textContent.includes(role)) {
+                    show = false;
+                }
+            }
+            
+            // Entity filter
+            if (entity) {
+                const entityCell = row.querySelector('td:nth-child(5)');
+                if (!entityCell || !entityCell.textContent.includes(entity)) {
+                    show = false;
+                }
+            }
+            
+            // Status filter
+            if (status) {
+                const statusCell = row.querySelector('td:nth-child(6) .badge');
+                const isActive = statusCell && statusCell.classList.contains('badge-success');
+                if ((status === 'active' && !isActive) || (status === 'inactive' && isActive)) {
+                    show = false;
+                }
+            }
+            
+            row.style.display = show ? '' : 'none';
+        });
+    },
+    
+    saveUser() {
+        const form = document.getElementById('userForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+        
+        // Validation
+        if (data.password !== data.password_confirm) {
+            showAlert('danger', 'Les mots de passe ne correspondent pas');
+            return;
+        }
+        
+        // Remove confirmation field
+        delete data.password_confirm;
+        
+        // Convert checkboxes
+        data.must_change_password = formData.get('must_change_password') === 'on';
+        data.send_credentials = formData.get('send_credentials') === 'on';
+        
+        const userId = form.dataset.userId;
+        const url = userId ? `/admin/users/${userId}/update` : '/admin/users/create';
+        const method = 'POST';
+        
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showAlert('success', userId ? 'Utilisateur modifié' : 'Utilisateur créé');
+                bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+                this.loadUsers();
+            } else {
+                showAlert('danger', result.error || 'Erreur lors de l\'enregistrement');
+            }
+        });
+    },
+    
+    editUser(userId) {
+        fetch(`/admin/users/${userId}`)
+            .then(response => response.json())
+            .then(user => {
+                const form = document.getElementById('userForm');
+                form.dataset.userId = userId;
+                
+                // Fill form fields
+                Object.keys(user).forEach(key => {
+                    const field = form.elements[key];
+                    if (field) {
+                        if (field.type === 'checkbox') {
+                            field.checked = user[key];
+                        } else {
+                            field.value = user[key];
+                        }
+                    }
+                });
+                
+                // Update modal title
+                document.querySelector('#userModal .modal-title').textContent = 'Modifier l\'utilisateur';
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('userModal'));
+                modal.show();
+            });
+    },
+    
+    deleteUser(userId) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
+            fetch(`/admin/users/${userId}/delete`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showAlert('success', 'Utilisateur supprimé');
+                    this.loadUsers();
+                } else {
+                    showAlert('danger', result.error || 'Erreur lors de la suppression');
+                }
+            });
+        }
+    },
+    
+    resetPassword(userId) {
+        if (confirm('Réinitialiser le mot de passe de cet utilisateur ?')) {
+            fetch(`/admin/users/${userId}/reset-password`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showAlert('success', 'Nouveau mot de passe envoyé par email');
+                } else {
+                    showAlert('danger', result.error || 'Erreur lors de la réinitialisation');
+                }
+            });
+        }
+    },
+    
+    exportUsers() {
+        const selected = Array.from(document.querySelectorAll('.user-checkbox:checked'))
+            .map(cb => cb.value);
+        
+        if (selected.length === 0) {
+            showAlert('warning', 'Veuillez sélectionner au moins un utilisateur');
+            return;
+        }
+        
+        window.location.href = `/admin/users/export?ids=${selected.join(',')}`;
+    }
+};
+</script>
+{% endblock %}

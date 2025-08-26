@@ -1,0 +1,861 @@
+{% extends "base.html" %}
+
+{% block title %}Achats - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="page-title">Gestion des Achats</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item active">Achats</li>
+            </ol>
+        </nav>
+    </div>
+    <div>
+        <button class="btn btn-light me-2" data-bs-toggle="modal" data-bs-target="#supplierModal">
+            <i class="fas fa-truck me-2"></i>Nouveau fournisseur
+        </button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#purchaseOrderModal">
+            <i class="fas fa-plus me-2"></i>Nouvelle commande
+        </button>
+    </div>
+</div>
+
+<!-- Navigation tabs -->
+<ul class="nav nav-tabs mb-3" id="mainTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="orders-tab" data-bs-toggle="tab" data-bs-target="#orders" type="button" role="tab">
+            <i class="fas fa-clipboard-list me-2"></i>Bons de commande
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="suppliers-tab" data-bs-toggle="tab" data-bs-target="#suppliers" type="button" role="tab">
+            <i class="fas fa-truck me-2"></i>Fournisseurs
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="mainTabsContent">
+    <!-- Purchase Orders Tab -->
+    <div class="tab-pane fade show active" id="orders" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Bons de commande</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-light active">Tous</button>
+                        <button class="btn btn-light">Brouillons</button>
+                        <button class="btn btn-light">Envoyés</button>
+                        <button class="btn btn-light">Reçus</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>N° Commande</th>
+                                <th>Fournisseur</th>
+                                <th>Date commande</th>
+                                <th>Livraison prévue</th>
+                                <th>Montant</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in orders %}
+                            <tr>
+                                <td><strong>{{ order.po_number }}</strong></td>
+                                <td>{{ order.supplier_name }}</td>
+                                <td>{{ order.order_date.strftime('%d/%m/%Y') }}</td>
+                                <td>{{ order.expected_delivery.strftime('%d/%m/%Y') if order.expected_delivery else 'N/A' }}</td>
+                                <td><strong>{{ "%.2f"|format(order.total_amount) }}Ar</strong></td>
+                                <td>
+                                    {% if order.status == 'draft' %}
+                                        <span class="badge badge-secondary">Brouillon</span>
+                                    {% elif order.status == 'sent' %}
+                                        <span class="badge badge-warning">Envoyé</span>
+                                    {% elif order.status == 'received' %}
+                                        <span class="badge badge-success">Reçu</span>
+                                    {% else %}
+                                        <span class="badge badge-danger">Annulé</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-light" onclick="viewOrderDetails({{ order.id }})" title="Voir">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        
+                                        {% if order.status == 'draft' %}
+                                        <button class="btn btn-warning" onclick="updateOrderStatus({{ order.id }}, 'sent')" title="Envoyer la commande">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                        {% elif order.status == 'sent' %}
+                                        <button class="btn btn-success" onclick="updateOrderStatus({{ order.id }}, 'received')" title="Marquer comme reçu">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        {% endif %}
+                                        
+                                        <button class="btn btn-light" onclick="printOrder({{ order.id }})" title="Imprimer">
+                                            <i class="fas fa-print"></i>
+                                        </button>
+                                        
+                                        {% if order.status != 'received' %}
+                                        <button class="btn btn-danger" onclick="updateOrderStatus({{ order.id }}, 'cancelled')" title="Annuler">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Suppliers Tab -->
+    <div class="tab-pane fade" id="suppliers" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Fournisseurs</h5>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#supplierModal">
+                        <i class="fas fa-plus me-2"></i>Nouveau fournisseur
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nom</th>
+                                <th>Contact</th>
+                                <th>Email</th>
+                                <th>Téléphone</th>
+                                <th>Commandes</th>
+                                <th>Total achats</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for supplier in suppliers %}
+                            <tr>
+                                <td>
+                                    <strong>{{ supplier.name }}</strong>
+                                    {% if supplier.tax_id %}
+                                        <br><small class="text-muted">{{ supplier.tax_id }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ supplier.contact_name or 'N/A' }}</td>
+                                <td>
+                                    {% if supplier.email %}
+                                        <a href="mailto:{{ supplier.email }}">{{ supplier.email }}</a>
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if supplier.phone %}
+                                        <a href="tel:{{ supplier.phone }}">{{ supplier.phone }}</a>
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">{{ supplier.order_count }}</span>
+                                </td>
+                                <td>
+                                    <strong>{{ "%.2f"|format(supplier.total_purchases) }}Ar</strong>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-light" onclick="viewSupplierDetails({{ supplier.id }})" title="Voir détails">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-light" onclick="editSupplier({{ supplier.id }})" title="Modifier">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-primary" onclick="createOrderForSupplier({{ supplier.id }})" title="Nouvelle commande">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Purchase Order Modal -->
+<div class="modal fade" id="purchaseOrderModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouveau bon de commande</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="purchaseOrderForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Fournisseur *</label>
+                            <select class="form-select" name="supplier_id" required onchange="loadSupplierInfo()">
+                                <option value="">Sélectionner un fournisseur</option>
+                                {% for supplier in suppliers_form %}
+                                <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Date commande *</label>
+                            <input type="date" class="form-control" name="order_date" value="{{ today }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Livraison prévue</label>
+                            <input type="date" class="form-control" name="expected_delivery">
+                        </div>
+                        
+                        <!-- Lignes de commande -->
+                        <div class="col-12">
+                            <h6 class="text-primary">Articles à commander</h6>
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Article</th>
+                                        <th>Quantité</th>
+                                        <th>Prix unitaire</th>
+                                        <th>Total</th>
+                                        <th>Entrepôt destination</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="po-lines">
+                                    <tr>
+                                        <td><input type="text" class="form-control form-control-sm" name="item_name[]" required></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="quantity[]" min="1" value="1" onchange="calculatePOLine(this)" required></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="unit_price[]" step="0.01" onchange="calculatePOLine(this)" required></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="line_total[]" readonly></td>
+                                        <td>
+                                            <select class="form-select form-select-sm" name="warehouse_id[]">
+                                                <option value="">Non spécifié</option>
+                                                {% for warehouse in warehouses %}
+                                                <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </td>
+                                        <td><button type="button" class="btn btn-sm btn-danger" onclick="removePOLine(this)"><i class="fas fa-times"></i></button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <button type="button" class="btn btn-sm btn-success" onclick="addPOLine()">
+                                <i class="fas fa-plus me-2"></i>Ajouter un article
+                            </button>
+                        </div>
+                        
+                        <!-- Total -->
+                        <div class="col-12">
+                            <div class="text-end">
+                                <h5>Total: <span id="po_total">0.00</span>Ar</h5>
+                            </div>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" name="notes" rows="2"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="savePurchaseOrder()">
+                    <i class="fas fa-save me-2"></i>Créer la commande
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Supplier Modal -->
+<div class="modal fade" id="supplierModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouveau fournisseur</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="supplierForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nom du fournisseur *</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">N° SIRET/TVA</label>
+                            <input type="text" class="form-control" name="tax_id">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Contact principal</label>
+                            <input type="text" class="form-control" name="contact_name">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email *</label>
+                            <input type="email" class="form-control" name="email" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Téléphone</label>
+                            <input type="tel" class="form-control" name="phone">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Conditions de paiement</label>
+                            <select class="form-select" name="payment_terms">
+                                <option value="30">30 jours</option>
+                                <option value="45">45 jours</option>
+                                <option value="60">60 jours</option>
+                                <option value="0">Comptant</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Adresse</label>
+                            <textarea class="form-control" name="address" rows="2"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveSupplier()">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Order Details Modal -->
+<div class="modal fade" id="orderDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails de la commande</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Le contenu sera rempli dynamiquement par JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Supplier Details Modal -->
+<div class="modal fade" id="supplierDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails du fournisseur</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Le contenu sera rempli dynamiquement par JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Purchase Functions
+function saveSupplier() {
+    const form = document.getElementById('supplierForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    fetch('/purchases/suppliers/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('supplierModal')).hide();
+            alert('Fournisseur créé avec succès');
+            location.reload();
+        } else {
+            alert('Erreur: ' + (data.error || 'Erreur lors de la création'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur de connexion au serveur');
+    });
+}
+
+function savePurchaseOrder() {
+    const form = document.getElementById('purchaseOrderForm');
+    const formData = new FormData(form);
+    
+    // Récupérer les lignes de commande
+    const lines = [];
+    const itemNames = formData.getAll('item_name[]');
+    const quantities = formData.getAll('quantity[]');
+    const unitPrices = formData.getAll('unit_price[]');
+    const warehouseIds = formData.getAll('warehouse_id[]');
+    
+    for (let i = 0; i < itemNames.length; i++) {
+        lines.push({
+            equipment_name: itemNames[i],
+            quantity: parseInt(quantities[i]),
+            unit_price: parseFloat(unitPrices[i]),
+            warehouse_id: warehouseIds[i] || null
+        });
+    }
+    
+    const data = {
+        supplier_id: formData.get('supplier_id'),
+        order_date: formData.get('order_date'),
+        expected_delivery: formData.get('expected_delivery'),
+        notes: formData.get('notes'),
+        lines: lines
+    };
+    
+    fetch('/purchases/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('purchaseOrderModal')).hide();
+            alert('Commande créée avec succès');
+            location.reload();
+        } else {
+            alert('Erreur: ' + (data.error || 'Erreur lors de la création'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur de connexion au serveur');
+    });
+}
+
+function addPOLine() {
+    const table = document.getElementById('po-lines');
+    const newRow = document.createElement('tr');
+    newRow.innerHTML = `
+        <td><input type="text" class="form-control form-control-sm" name="item_name[]" required></td>
+        <td><input type="number" class="form-control form-control-sm" name="quantity[]" min="1" value="1" onchange="calculatePOLine(this)" required></td>
+        <td><input type="number" class="form-control form-control-sm" name="unit_price[]" step="0.01" onchange="calculatePOLine(this)" required></td>
+        <td><input type="number" class="form-control form-control-sm" name="line_total[]" readonly></td>
+        <td>
+            <select class="form-select form-select-sm" name="warehouse_id[]">
+                <option value="">Non spécifié</option>
+                {% for warehouse in warehouses %}
+                <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td><button type="button" class="btn btn-sm btn-danger" onclick="removePOLine(this)"><i class="fas fa-times"></i></button></td>
+    `;
+    table.appendChild(newRow);
+}
+
+function removePOLine(button) {
+    const row = button.closest('tr');
+    row.remove();
+    calculatePOTotal();
+}
+
+function calculatePOLine(input) {
+    const row = input.closest('tr');
+    const quantity = row.querySelector('input[name="quantity[]"]').value;
+    const unitPrice = row.querySelector('input[name="unit_price[]"]').value;
+    const totalInput = row.querySelector('input[name="line_total[]"]');
+    
+    if (quantity && unitPrice) {
+        const total = parseFloat(quantity) * parseFloat(unitPrice);
+        totalInput.value = total.toFixed(2);
+    } else {
+        totalInput.value = '';
+    }
+    
+    calculatePOTotal();
+}
+
+function calculatePOTotal() {
+    const lineTotals = document.querySelectorAll('input[name="line_total[]"]');
+    let total = 0;
+    
+    lineTotals.forEach(input => {
+        if (input.value) {
+            total += parseFloat(input.value);
+        }
+    });
+    
+    document.getElementById('po_total').textContent = total.toFixed(2);
+}
+
+function loadSupplierInfo() {
+    const supplierId = document.querySelector('select[name="supplier_id"]').value;
+    if (supplierId) {
+        fetch(`/purchases/suppliers/${supplierId}`)
+            .then(response => response.json())
+            .then(data => {
+                // Mettre à jour les infos si nécessaire
+            });
+    }
+}
+
+function viewOrderDetails(orderId) {
+    fetch(`/purchases/api/order/${orderId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const order = data.order;
+                const lines = data.lines;
+                
+                $('#orderDetailsModal .modal-title').text(`Commande: ${order.po_number}`);
+                $('#orderDetailsModal .modal-body').html(`
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Fournisseur</h6>
+                            <p><strong>${order.supplier_name}</strong><br>
+                            ${order.contact_name || ''}<br>
+                            ${order.supplier_email || ''}<br>
+                            ${order.supplier_phone || ''}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Détails</h6>
+                            <p><strong>Date:</strong> ${new Date(order.order_date).toLocaleDateString('fr-FR')}<br>
+                            <strong>Livraison:</strong> ${order.expected_delivery ? new Date(order.expected_delivery).toLocaleDateString('fr-FR') : 'Non spécifiée'}<br>
+                            <strong>Statut:</strong> ${order.status}<br>
+                            <strong>Total:</strong> ${order.total_amount}Ar</p>
+                        </div>
+                    </div>
+                    
+                    <h6 class="mt-3">Articles</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Article</th>
+                                    <th>Quantité</th>
+                                    <th>Prix unitaire</th>
+                                    <th>Total</th>
+                                    <th>Entrepôt</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${lines.map(line => `
+                                    <tr>
+                                        <td>${line.equipment_name}</td>
+                                        <td>${line.quantity}</td>
+                                        <td>${line.unit_price}Ar</td>
+                                        <td>${line.total_price}Ar</td>
+                                        <td>${line.warehouse_name || 'Non spécifié'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `);
+                
+                $('#orderDetailsModal').modal('show');
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur de chargement des détails');
+        });
+}
+
+function viewSupplierDetails(supplierId) {
+    fetch(`/purchases/suppliers/${supplierId}`)
+        .then(response => response.json())
+        .then(supplier => {
+            $('#supplierDetailsModal .modal-title').text(`Fournisseur: ${supplier.name}`);
+            $('#supplierDetailsModal .modal-body').html(`
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Informations générales</h6>
+                        <p><strong>Nom:</strong> ${supplier.name}<br>
+                        <strong>Contact:</strong> ${supplier.contact_name || 'N/A'}<br>
+                        <strong>SIRET/TVA:</strong> ${supplier.tax_id || 'N/A'}<br>
+                        <strong>Conditions:</strong> ${supplier.payment_terms || 'N/A'} jours</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Contact</h6>
+                        <p><strong>Email:</strong> ${supplier.email ? `<a href="mailto:${supplier.email}">${supplier.email}</a>` : 'N/A'}<br>
+                        <strong>Téléphone:</strong> ${supplier.phone ? `<a href="tel:${supplier.phone}">${supplier.phone}</a>` : 'N/A'}</p>
+                    </div>
+                </div>
+                
+                ${supplier.address ? `
+                    <div class="row">
+                        <div class="col-12">
+                            <h6>Adresse</h6>
+                            <p>${supplier.address}</p>
+                        </div>
+                    </div>
+                ` : ''}
+            `);
+            
+            $('#supplierDetailsModal').modal('show');
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur de chargement des détails du fournisseur');
+        });
+}
+
+function editSupplier(supplierId) {
+    // Précharger les données du fournisseur dans le modal
+    fetch(`/purchases/suppliers/${supplierId}`)
+        .then(response => response.json())
+        .then(supplier => {
+            const form = document.getElementById('supplierForm');
+            form.querySelector('[name="name"]').value = supplier.name || '';
+            form.querySelector('[name="tax_id"]').value = supplier.tax_id || '';
+            form.querySelector('[name="contact_name"]').value = supplier.contact_name || '';
+            form.querySelector('[name="email"]').value = supplier.email || '';
+            form.querySelector('[name="phone"]').value = supplier.phone || '';
+            form.querySelector('[name="payment_terms"]').value = supplier.payment_terms || '30';
+            form.querySelector('[name="address"]').value = supplier.address || '';
+            
+            // Changer le titre du modal
+            document.querySelector('#supplierModal .modal-title').textContent = 'Modifier le fournisseur';
+            
+            // Modifier le bouton pour la mise à jour
+            const saveBtn = document.querySelector('#supplierModal .modal-footer .btn-primary');
+            saveBtn.onclick = () => updateSupplier(supplierId);
+            saveBtn.innerHTML = '<i class="fas fa-save me-2"></i>Mettre à jour';
+            
+            $('#supplierModal').modal('show');
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur de chargement des données du fournisseur');
+        });
+}
+
+function updateSupplier(supplierId) {
+    const form = document.getElementById('supplierForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    fetch(`/purchases/suppliers/${supplierId}/update`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('supplierModal')).hide();
+            alert('Fournisseur mis à jour avec succès');
+            location.reload();
+        } else {
+            alert('Erreur: ' + (data.error || 'Erreur lors de la mise à jour'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur de connexion au serveur');
+    });
+}
+
+function createOrderForSupplier(supplierId) {
+    // Pré-sélectionner le fournisseur dans le modal de commande
+    const supplierSelect = document.querySelector('#purchaseOrderModal select[name="supplier_id"]');
+    supplierSelect.value = supplierId;
+    
+    // Ouvrir le modal de commande
+    $('#purchaseOrderModal').modal('show');
+    
+    // Charger les infos du fournisseur
+    loadSupplierInfo();
+}
+
+function receiveOrder(orderId) {
+    if (confirm('Marquer cette commande comme reçue ? Cette action ajoutera les articles au stock.')) {
+        fetch(`/purchases/${orderId}/receive`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Commande marquée comme reçue et stock mis à jour');
+                location.reload();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors de la réception');
+        });
+    }
+}
+
+function updateOrderStatus(orderId, newStatus) {
+    const statusMessages = {
+        'sent': 'Envoyer cette commande au fournisseur ?',
+        'received': 'Marquer cette commande comme reçue ?',
+        'cancelled': 'Annuler cette commande ?'
+    };
+    
+    if (confirm(statusMessages[newStatus] || 'Changer le statut de cette commande ?')) {
+        fetch(`/purchases/${orderId}/update-status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ status: newStatus })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Erreur HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                alert('Statut de la commande mis à jour');
+                location.reload();
+            } else {
+                alert('Erreur: ' + (data.error || 'Erreur inconnue'));
+            }
+        })
+        .catch(error => {
+            console.error('Erreur détaillée:', error);
+            alert('Erreur de connexion au serveur. Vérifiez que la route existe.');
+        });
+    }
+}
+
+function printOrder(orderId) {
+    fetch(`/purchases/api/order/${orderId}/print`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <html>
+                    <head>
+                        <title>Commande ${data.order.po_number}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 20px; }
+                            .header { text-align: center; margin-bottom: 30px; }
+                            .section { margin-bottom: 20px; }
+                            table { width: 100%; border-collapse: collapse; }
+                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                            th { background-color: #f2f2f2; }
+                            .total-row { font-weight: bold; background-color: #f8f9fa; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <h1>Bon de Commande ${data.order.po_number}</h1>
+                            <p>Date: ${new Date(data.order.order_date).toLocaleDateString('fr-FR')}</p>
+                        </div>
+                        
+                        <div class="section">
+                            <h3>Fournisseur: ${data.order.supplier_name}</h3>
+                            <p>${data.order.supplier_address || ''}<br>
+                            ${data.order.supplier_phone || ''}<br>
+                            ${data.order.supplier_email || ''}</p>
+                        </div>
+                        
+                        <div class="section">
+                            <h3>Articles commandés</h3>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Article</th>
+                                        <th>Quantité</th>
+                                        <th>Prix unitaire</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.lines.map(line => `
+                                        <tr>
+                                            <td>${line.equipment_name}</td>
+                                            <td>${line.quantity}</td>
+                                            <td>${line.unit_price}Ar</td>
+                                            <td>${line.total_price}Ar</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="total-row">
+                                        <td colspan="3" style="text-align: right;">Total:</td>
+                                        <td>${data.order.total_amount}Ar</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                printWindow.print();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors de l\'impression');
+        });
+}
+
+// Reset supplier modal when closed
+document.getElementById('supplierModal').addEventListener('hidden.bs.modal', function () {
+    // Reset form
+    document.getElementById('supplierForm').reset();
+    
+    // Reset modal title and button
+    document.querySelector('#supplierModal .modal-title').textContent = 'Nouveau fournisseur';
+    const saveBtn = document.querySelector('#supplierModal .modal-footer .btn-primary');
+    saveBtn.onclick = saveSupplier;
+    saveBtn.innerHTML = '<i class="fas fa-save me-2"></i>Enregistrer';
+});
+
+// Initialisation
+document.addEventListener('DOMContentLoaded', function() {
+    calculatePOTotal();
+});
+</script>
+{% endblock %}

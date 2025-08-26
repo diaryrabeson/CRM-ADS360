@@ -1,0 +1,431 @@
+{% extends "base.html" %}
+
+{% block title %}Rôles et Permissions - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Gestion des rôles et permissions</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Administration</a></li>
+                <li class="breadcrumb-item active">Rôles</li>
+            </ol>
+        </nav>
+    </div>
+    <div>
+        <button class="btn btn-primary" onclick="showRoleModal()">
+            <i class="fas fa-plus me-2"></i>Nouveau rôle
+        </button>
+    </div>
+</div>
+
+<!-- Alert Container -->
+<div id="alertContainer"></div>
+
+<!-- Roles Cards -->
+<div class="row">
+    {% for role in roles %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">{{ role.name }}</h6>
+                <span class="badge badge-info">{{ role.user_count }} utilisateur(s)</span>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">{{ role.description }}</p>
+                
+                <!-- Permissions Summary -->
+                <div class="permissions-grid mb-3">
+                    {% set permissions = role.permissions %}
+                    {% for module, actions in permissions.items() %}
+                    <div class="permission-badge mb-2">
+                        <strong>{{ module }}:</strong>
+                        {% for action in actions %}
+                        <span class="badge badge-success ms-1">{{ action }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="btn-group btn-group-sm w-100">
+                    <button class="btn btn-light" onclick="editRole({{ role.id }})">
+                        <i class="fas fa-edit"></i> Modifier
+                    </button>
+                    <button class="btn btn-light" onclick="duplicateRole({{ role.id }})">
+                        <i class="fas fa-copy"></i> Dupliquer
+                    </button>
+                    {% if role.user_count == 0 %}
+                    <button class="btn btn-light text-danger" onclick="showDeleteModal({{ role.id }})">
+                        <i class="fas fa-trash"></i> Supprimer
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Role Modal -->
+<div class="modal fade" id="roleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="roleModalTitle">Nouveau rôle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="roleForm">
+                    <input type="hidden" id="roleId" name="role_id">
+                    <div class="mb-3">
+                        <label class="form-label">Nom du rôle *</label>
+                        <input type="text" class="form-control" id="roleName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="roleDescription" name="description" rows="2"></textarea>
+                    </div>
+                    
+                    <!-- Permissions Matrix -->
+                    <div class="mb-3">
+                        <label class="form-label">Permissions</label>
+                        <div class="d-flex gap-2 mb-2">
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="selectAllPermissions()">
+                                Tout sélectionner
+                            </button>
+                            <button type="button" class="btn btn-sm btn-light" onclick="clearAllPermissions()">
+                                Tout déselectionner
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Module</th>
+                                        <th>Lecture</th>
+                                        <th>Création</th>
+                                        <th>Modification</th>
+                                        <th>Suppression</th>
+                                        <th>Export</th>
+                                        <th>Import</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for module in ['prospects', 'campaigns', 'sites', 'stock', 'hr', 'finance', 'purchases', 'projects'] %}
+                                    <tr>
+                                        <td><strong>{{ module|capitalize }}</strong></td>
+                                        <td>
+                                            <input type="checkbox" class="form-check-input" 
+                                                   name="perm_{{ module }}_read" id="perm_{{ module }}_read">
+                                        </td>
+                                        <td>
+                                            <input type="checkbox" class="form-check-input" 
+                                                   name="perm_{{ module }}_create" id="perm_{{ module }}_create">
+                                        </td>
+                                        <td>
+                                            <input type="checkbox" class="form-check-input" 
+                                                   name="perm_{{ module }}_update" id="perm_{{ module }}_update">
+                                        </td>
+                                        <td>
+                                            <input type="checkbox" class="form-check-input" 
+                                                   name="perm_{{ module }}_delete" id="perm_{{ module }}_delete">
+                                        </td>
+                                        <td>
+                                            <input type="checkbox" class="form-check-input" 
+                                                   name="perm_{{ module }}_export" id="perm_{{ module }}_export">
+                                        </td>
+                                        <td>
+                                            <input type="checkbox" class="form-check-input" 
+                                                   name="perm_{{ module }}_import" id="perm_{{ module }}_import">
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveRole()">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmation de suppression</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer ce rôle ? Cette action est irréversible.</p>
+                <input type="hidden" id="deleteRoleId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                    <i class="fas fa-trash me-2"></i>Supprimer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Fonctions pour afficher les modals
+function showRoleModal() {
+    // Réinitialiser le formulaire
+    document.getElementById('roleForm').reset();
+    document.getElementById('roleId').value = '';
+    document.getElementById('roleModalTitle').textContent = 'Nouveau rôle';
+    
+    // Afficher le modal
+    const modal = new bootstrap.Modal(document.getElementById('roleModal'));
+    modal.show();
+}
+
+function showDeleteModal(roleId) {
+    document.getElementById('deleteRoleId').value = roleId;
+    
+    // Afficher le modal de confirmation
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+// Fonctions pour gérer les rôles
+function editRole(roleId) {
+    fetch(`/admin/roles/${roleId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Rôle non trouvé');
+            }
+            return response.json();
+        })
+        .then(role => {
+            // Remplir les champs du formulaire
+            document.getElementById('roleId').value = role.id;
+            document.getElementById('roleName').value = role.name;
+            document.getElementById('roleDescription').value = role.description || '';
+            
+            // Remplir les permissions
+            const permissions = role.permissions || {};
+            Object.keys(permissions).forEach(module => {
+                permissions[module].forEach(action => {
+                    const checkbox = document.getElementById(`perm_${module}_${action}`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+            });
+            
+            // Changer le titre du modal
+            document.getElementById('roleModalTitle').textContent = 'Modifier le rôle';
+            
+            // Afficher le modal
+            const modal = new bootstrap.Modal(document.getElementById('roleModal'));
+            modal.show();
+        })
+        .catch(error => {
+            showAlert('danger', 'Erreur lors du chargement du rôle: ' + error.message);
+            console.error('Error:', error);
+        });
+}
+
+function duplicateRole(roleId) {
+    fetch(`/admin/roles/${roleId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Rôle non trouvé');
+            }
+            return response.json();
+        })
+        .then(role => {
+            // Remplir les champs du formulaire avec "Copie de" préfixe
+            document.getElementById('roleId').value = '';
+            document.getElementById('roleName').value = `Copie de ${role.name}`;
+            document.getElementById('roleDescription').value = role.description || '';
+            
+            // Remplir les permissions
+            const permissions = role.permissions || {};
+            Object.keys(permissions).forEach(module => {
+                permissions[module].forEach(action => {
+                    const checkbox = document.getElementById(`perm_${module}_${action}`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+            });
+            
+            // Changer le titre du modal
+            document.getElementById('roleModalTitle').textContent = 'Dupliquer le rôle';
+            
+            // Afficher le modal
+            const modal = new bootstrap.Modal(document.getElementById('roleModal'));
+            modal.show();
+        })
+        .catch(error => {
+            showAlert('danger', 'Erreur lors du chargement du rôle: ' + error.message);
+            console.error('Error:', error);
+        });
+}
+
+function saveRole() {
+    const roleId = document.getElementById('roleId').value;
+    const name = document.getElementById('roleName').value;
+    const description = document.getElementById('roleDescription').value;
+    
+    if (!name) {
+        showAlert('warning', 'Veuillez saisir un nom pour le rôle');
+        return;
+    }
+    
+    // Collecter les permissions
+    const permissions = {};
+    const modules = ['prospects', 'campaigns', 'sites', 'stock', 'hr', 'finance', 'purchases', 'projects'];
+    const actions = ['read', 'create', 'update', 'delete', 'export', 'import'];
+    
+    modules.forEach(module => {
+        permissions[module] = [];
+        actions.forEach(action => {
+            const checkbox = document.getElementById(`perm_${module}_${action}`);
+            if (checkbox && checkbox.checked) {
+                permissions[module].push(action);
+            }
+        });
+    });
+    
+    const data = {
+        name: name,
+        description: description,
+        permissions: permissions
+    };
+    
+    const url = roleId ? `/admin/roles/${roleId}/update` : '/admin/roles/create';
+    const method = roleId ? 'PUT' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(errorData => {
+                throw new Error(errorData.error || 'Erreur serveur');
+            });
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            showAlert('success', roleId ? 'Rôle modifié avec succès' : 'Rôle créé avec succès');
+            
+            // Fermer le modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('roleModal'));
+            modal.hide();
+            
+            // Recharger la page après un court délai
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showAlert('danger', result.error || 'Erreur lors de l\'enregistrement');
+        }
+    })
+    .catch(error => {
+        showAlert('danger', error.message || 'Erreur lors de l\'enregistrement');
+        console.error('Error:', error);
+    });
+}
+
+function confirmDelete() {
+    const roleId = document.getElementById('deleteRoleId').value;
+    
+    fetch(`/admin/roles/${roleId}/delete`, {
+        method: 'DELETE'
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(errorData => {
+                throw new Error(errorData.error || 'Erreur serveur');
+            });
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            showAlert('success', 'Rôle supprimé avec succès');
+            
+            // Fermer le modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
+            modal.hide();
+            
+            // Recharger la page après un court délai
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showAlert('danger', result.error || 'Erreur lors de la suppression');
+        }
+    })
+    .catch(error => {
+        showAlert('danger', error.message || 'Erreur lors de la suppression');
+        console.error('Error:', error);
+    });
+}
+
+// Fonctions pour gérer les permissions
+function selectAllPermissions() {
+    const checkboxes = document.querySelectorAll('#roleForm input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = true;
+    });
+}
+
+function clearAllPermissions() {
+    const checkboxes = document.querySelectorAll('#roleForm input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+}
+
+// Fonction utilitaire pour afficher des alertes
+function showAlert(type, message) {
+    const alertContainer = document.getElementById('alertContainer');
+    const alertId = 'alert-' + Date.now();
+    
+    const alertHTML = `
+        <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    alertContainer.innerHTML = alertHTML;
+    
+    // Supprimer automatiquement l'alerte après 5 secondes
+    setTimeout(() => {
+        const alert = document.getElementById(alertId);
+        if (alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

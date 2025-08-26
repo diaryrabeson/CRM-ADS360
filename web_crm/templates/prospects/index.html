@@ -1,0 +1,1341 @@
+{% extends "base.html" %}
+
+{% block title %}Prospects - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="page-title">Gestion des prospects</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item active">Prospects</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div>
+        <button class="btn btn-light me-2" onclick="exportData()">
+            <i class="fas fa-download me-2"></i>Exporter
+        </button>
+    </div>
+
+</div>
+
+<!-- Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">Prospects</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i class="fas fa-user-plus"></i>
+            </div>
+            <div class="stat-value">{{ stats.new }}</div>
+            <div class="stat-label">Nouveaux</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="fas fa-handshake"></i>
+            </div>
+            <div class="stat-value">{{ stats.in_progress }}</div>
+            <div class="stat-label">En négociation</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="fas fa-trophy"></i>
+            </div>
+            <div class="stat-value">{{ stats.won }}</div>
+            <div class="stat-label">Gagnés</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3" id="prospectsTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="prospect-tab" data-bs-toggle="tab" data-bs-target="#prospect" type="button" role="tab" aria-controls="prospect" aria-selected="true">
+            Prospects
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="client-tab" data-bs-toggle="tab" data-bs-target="#client" type="button" role="tab" aria-controls="client" aria-selected="false">
+            Clients
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="partner-tab" data-bs-toggle="tab" data-bs-target="#partner" type="button" role="tab" aria-controls="partner" aria-selected="false">
+            Partenaires
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content" id="prospectsTabContent">
+    <!-- Prospects Tab -->
+    <div class="tab-pane fade show active" id="prospect" role="tabpanel" aria-labelledby="prospect-tab">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Liste des prospects</h5>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#prospectModal">
+                <i class="fas fa-plus me-2"></i>Nouveau prospect
+            </button>
+        </div>
+        
+        <!-- Filters -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control" placeholder="Rechercher..." id="searchProspect">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="filterStatus">
+                            <option value="">Tous les statuts</option>
+                            <option value="Nouveau">Nouveau</option>
+                            <option value="Contacté">Contacté</option>
+                            <option value="En négociation">En négociation</option>
+                            <option value="Proposition envoyée">Proposition envoyée</option>
+                            <option value="En attente">En attente de décision</option>
+                            <option value="Gagné">Gagné</option>
+                            <option value="Perdu">Perdu</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="filterCategory">
+                            <option value="">Toutes les catégories</option>
+                            <option value="Agence de voyage">Agence de voyage</option>
+                            <option value="Hôtellerie">Hôtellerie</option>
+                            <option value="Restauration">Restauration</option>
+                            <option value="Transport">Transport</option>
+                            <option value="Commerce">Commerce</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="filterCommercial">
+                            <option value="">Tous les commerciaux</option>
+                            {% for commercial in commercials %}
+                            <option value="{{ commercial.id }}">{{ commercial.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prospects Table -->
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>
+                                    <input type="checkbox" class="form-check-input" id="selectAll">
+                                </th>
+                                <th>Entreprise</th>
+                                <th>Contact</th>
+                                <th>Catégorie</th>
+                                <th>Statut</th>
+                                <th>Commercial</th>
+                                <th>Créé le</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for prospect in prospects %}
+                            <tr onclick="viewProspect({{ prospect.id }})" style="cursor: pointer;">
+                                <td onclick="event.stopPropagation();">
+                                    <input type="checkbox" class="form-check-input prospect-checkbox" value="{{ prospect.id }}">
+                                </td>
+                                <td>
+                                    <strong>{{ prospect.company_name }}</strong><br>
+                                    <small class="text-muted">{{ prospect.sector }}</small>
+                                </td>
+                                <td>
+                                    {{ prospect.contact_name }}<br>
+                                    <small class="text-muted">{{ prospect.contact_email }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge badge-info">{{ prospect.category }}</span>
+                                </td>
+                                <td>
+                                    {% if prospect.status == 'Nouveau' %}
+                                        <span class="badge badge-primary">{{ prospect.status }}</span>
+                                    {% elif prospect.status == 'Gagné' %}
+                                        <span class="badge badge-success">{{ prospect.status }}</span>
+                                    {% elif prospect.status == 'Perdu' %}
+                                        <span class="badge badge-danger">{{ prospect.status }}</span>
+                                    {% else %}
+                                        <span class="badge badge-warning">{{ prospect.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ prospect.assigned_to_name|default('-') }}</td>
+                                <td>{{ prospect.created_at.strftime('%d/%m/%Y') if prospect.created_at else '' }}</td>
+                                <td onclick="event.stopPropagation();">
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-light" onclick="editProspect({{ prospect.id }})" title="Modifier">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        {% if prospect.status != 'Gagné' %}
+                                        <button class="btn btn-light" onclick="addFollowup({{ prospect.id }})" title="Relance">
+                                            <i class="fas fa-phone"></i>
+                                        </button>
+                                        {% endif %}
+                                        {% if prospect.status == 'Gagné' and not prospect.converted_entity_id %}
+                                        <button class="btn btn-light text-success" onclick="convertProspect({{ prospect.id }})" title="Convertir">
+                                            <i class="fas fa-exchange-alt"></i>
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-light text-danger" onclick="deleteProspect({{ prospect.id }})" title="Supprimer">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clients Tab -->
+    <div class="tab-pane fade" id="client" role="tabpanel" aria-labelledby="client-tab">
+        <!-- Header with Add Button -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Liste des clients</h5>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#clientModal">
+                <i class="fas fa-plus me-2"></i>Nouveau client
+            </button>
+        </div>
+
+        <!-- Client Filters -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <input type="text" class="form-control" placeholder="Rechercher un client..." id="searchClient">
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="filterClientStatus">
+                            <option value="">Tous les statuts</option>
+                            <option value="Actif">Actif</option>
+                            <option value="Inactif">Inactif</option>
+                            <option value="En attente">En attente</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="filterClientCategory">
+                            <option value="">Toutes les catégories</option>
+                            <option value="Agence de voyage">Agence de voyage</option>
+                            <option value="Hôtellerie">Hôtellerie</option>
+                            <option value="Restauration">Restauration</option>
+                            <option value="Transport">Transport</option>
+                            <option value="Commerce">Commerce</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clients Table -->
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Entreprise</th>
+                                <th>Contact</th>
+                                <th>Catégorie</th>
+                                <th>Statut</th>
+                                <th>Chiffre d'affaires</th>
+                                <th>Commercial</th>
+                                <th>Date de conversion</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for client in clients %}
+                            <tr>
+                                <td>
+                                    <strong>{{ client.company_name }}</strong><br>
+                                    <small class="text-muted">{{ client.sector }}</small>
+                                </td>
+                                <td>
+                                    {{ client.contact_name }}<br>
+                                    <small class="text-muted">{{ client.contact_email }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge badge-info">{{ client.category }}</span>
+                                </td>
+                                <td>
+                                    {% if client.status == 'Actif' %}
+                                        <span class="badge badge-success">{{ client.status }}</span>
+                                    {% elif client.status == 'Inactif' %}
+                                        <span class="badge badge-danger">{{ client.status }}</span>
+                                    {% else %}
+                                        <span class="badge badge-warning">{{ client.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.0f"|format(client.revenue|default(0)) }}€</td>
+                                <td>{{ client.assigned_to_name|default('-') }}</td>
+                                <td>{{ client.converted_at.strftime('%d/%m/%Y') if client.converted_at else '' }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-light" onclick="viewClient({{ client.id }})" title="Voir détails">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-light" onclick="editClient({{ client.id }})" title="Modifier">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-light text-danger" onclick="deleteClient({{ client.id }})" title="Supprimer">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4">
+                                    <i class="fas fa-users fa-2x text-muted mb-2"></i>
+                                    <p class="text-muted">Aucun client trouvé</p>
+                                    <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#clientModal">
+                                        <i class="fas fa-plus me-2"></i>Ajouter un client
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Partners Tab -->
+    <div class="tab-pane fade" id="partner" role="tabpanel" aria-labelledby="partner-tab">
+        <!-- Header with Add Button -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Liste des partenaires</h5>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#partnerModal">
+                <i class="fas fa-plus me-2"></i>Nouveau partenaire
+            </button>
+        </div>
+
+        <!-- Partner Filters -->
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <input type="text" class="form-control" placeholder="Rechercher un partenaire..." id="searchPartner">
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="filterPartnerType">
+                            <option value="">Tous les types</option>
+                            <option value="Hébergeur">Hébergeur</option>
+                            <option value="Technologique">Technologique</option>
+                            <option value="Commercial">Commercial</option>
+                            <option value="Stratégique">Stratégique</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="filterPartnerStatus">
+                            <option value="">Tous les statuts</option>
+                            <option value="Actif">Actif</option>
+                            <option value="Inactif">Inactif</option>
+                            <option value="En négociation">En négociation</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Partners Table -->
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Entreprise</th>
+                                <th>Contact</th>
+                                <th>Type de partenariat</th>
+                                <th>Statut</th>
+                                <th>Date de début</th>
+                                <th>Commercial</th>
+                                <th>Date de conversion</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for partner in partners %}
+                            <tr>
+                                <td>
+                                    <strong>{{ partner.company_name }}</strong><br>
+                                    <small class="text-muted">{{ partner.sector }}</small>
+                                </td>
+                                <td>
+                                    {{ partner.contact_name }}<br>
+                                    <small class="text-muted">{{ partner.contact_email }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge badge-info">{{ partner.partnership_type }}</span>
+                                </td>
+                                <td>
+                                    {% if partner.status == 'Actif' %}
+                                        <span class="badge badge-success">{{ partner.status }}</span>
+                                    {% elif partner.status == 'Inactif' %}
+                                        <span class="badge badge-danger">{{ partner.status }}</span>
+                                    {% else %}
+                                        <span class="badge badge-warning">{{ partner.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ partner.start_date.strftime('%d/%m/%Y') if partner.start_date else '' }}</td>
+                                <td>{{ partner.assigned_to_name|default('-') }}</td>
+                                <td>{{ partner.converted_at.strftime('%d/%m/%Y') if partner.converted_at else '' }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-light" onclick="viewPartner({{ partner.id }})" title="Voir détails">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-light" onclick="editPartner({{ partner.id }})" title="Modifier">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-light text-danger" onclick="deletePartner({{ partner.id }})" title="Supprimer">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4">
+                                    <i class="fas fa-handshake fa-2x text-muted mb-2"></i>
+                                    <p class="text-muted">Aucun partenaire trouvé</p>
+                                    <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#partnerModal">
+                                        <i class="fas fa-plus me-2"></i>Ajouter un partenaire
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Prospect Modal -->
+<div class="modal fade" id="prospectModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouveau prospect</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="prospectForm">
+                    <div class="row g-3">
+                        <!-- Informations entreprise -->
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">Informations entreprise</h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Nom de l'entreprise *</label>
+                            <input type="text" class="form-control" name="company_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Catégorie *</label>
+                            <select class="form-select" name="category" required>
+                                <option value="">Sélectionner</option>
+                                <option value="Agence de voyage">Agence de voyage</option>
+                                <option value="Hôtellerie">Hôtellerie</option>
+                                <option value="Restauration">Restauration</option>
+                                <option value="Transport">Transport</option>
+                                <option value="Commerce">Commerce</option>
+                                <option value="Autre">Autre</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Secteur d'activité</label>
+                            <input type="text" class="form-control" name="sector">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Taille de l'entreprise</label>
+                            <select class="form-select" name="company_size">
+                                <option value="">Sélectionner</option>
+                                <option value="1-10">1-10 employés</option>
+                                <option value="11-50">11-50 employés</option>
+                                <option value="51-200">51-200 employés</option>
+                                <option value="201-500">201-500 employés</option>
+                                <option value="500+">Plus de 500 employés</option>
+                            </select>
+                        </div>
+
+                        <!-- Adresse principal -->
+                        <div class="col-md-4">
+                            <label class="form-label">Pays *</label>
+                            <select class="form-select" name="country" id="country" required>
+                                <option value="">Sélectionner un pays</option>
+                                <!-- Options chargées depuis la DB -->
+                            </select>
+                        </div>
+                        
+                        <!-- Contact principal -->
+                        <div class="col-12 mt-4">
+                            <h6 class="text-primary mb-3">Contact principal</h6>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Nom du contact *</label>
+                            <input type="text" class="form-control" name="contact_name" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Email *</label>
+                            <input type="email" class="form-control" name="contact_email" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Téléphone</label>
+                            <input type="tel" class="form-control" name="contact_phone">
+                        </div>
+                        
+                        <!-- Suivi commercial -->
+                        <div class="col-12 mt-4">
+                            <h6 class="text-primary mb-3">Suivi commercial</h6>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Statut</label>
+                            <select class="form-select" name="status">
+                                <option value="Nouveau">Nouveau</option>
+                                <option value="Contacté">Contacté</option>
+                                <option value="En négociation">En négociation</option>
+                                <option value="Proposition envoyée">Proposition envoyée</option>
+                                <option value="En attente">En attente de décision</option>
+                                <option value="Gagné">Gagné</option>
+                                <option value="Perdu">Perdu</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Commercial assigné</label>
+                            <select class="form-select" name="assigned_to">
+                                <option value="">Sélectionner</option>
+                                {% for commercial in commercials %}
+                                <option value="{{ commercial.id }}">{{ commercial.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Source</label>
+                            <select class="form-select" name="source">
+                                <option value="">Sélectionner</option>
+                                <option value="Site web">Site web</option>
+                                <option value="Réseaux sociaux">Réseaux sociaux</option>
+                                <option value="Recommandation">Recommandation</option>
+                                <option value="Salon">Salon/Événement</option>
+                                <option value="Cold calling">Cold calling</option>
+                                <option value="Autre">Autre</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" name="notes" rows="3"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveProspect()">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Prospect Detail Modal -->
+<div class="modal fade" id="prospectDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Détails du prospect</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="prospectDetailContent">
+        <!-- Contenu rempli par JS -->
+        <div class="text-center">
+          <i class="fas fa-spinner fa-spin"></i> Chargement...
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Fermer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Prospect Modal -->
+<div class="modal fade" id="editProspectModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Modifier le prospect</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editProspectForm">
+                    <input type="hidden" id="edit_prospect_id">
+                    <div class="row">
+                        <div class="mb-3 col-md-6">
+                            <label class="form-label">Nom de l'entreprise *</label>
+                            <input type="text" class="form-control" id="edit_company_name" required>
+                        </div>
+                        <div class="mb-3 col-md-6">
+                            <label class="form-label">Catégorie</label>
+                            <input type="text" class="form-control" id="edit_category">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="mb-3 col-md-6">
+                            <label class="form-label">Statut</label>
+                            <select class="form-select" id="edit_status">
+                                <option value="Nouveau">Nouveau</option>
+                                <option value="Contacté">Contacté</option>
+                                <option value="En négociation">En négociation</option>
+                                <option value="Gagné">Gagné</option>
+                                <option value="Perdu">Perdu</option>
+                            </select>
+                        </div>
+                        <div class="mb-3 col-md-6">
+                            <label class="form-label">Commerciaux assigné</label>
+                            <select class="form-select" id="edit_assigned_to">
+                                {% for c in commercials %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="mb-3 col-md-6">
+                            <label class="form-label">Nom du contact</label>
+                            <input type="text" class="form-control" id="edit_contact_name">
+                        </div>
+                        <div class="mb-3 col-md-6">
+                            <label class="form-label">Email du contact</label>
+                            <input type="email" class="form-control" id="edit_contact_email">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="mb-3 col-md-6">
+                            <label class="form-label">Téléphone du contact</label>
+                            <input type="text" class="form-control" id="edit_contact_phone">
+                        </div>
+                        <div class="mb-3 col-md-6">
+                            <label class="form-label">Adresse</label>
+                            <input type="text" class="form-control" id="edit_address">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="mb-3 col-md-6">
+                            <label class="form-label">Secteur</label>
+                            <input type="text" class="form-control" id="edit_sector">
+                        </div>
+                        <div class="mb-3 col-md-6">
+                            <label class="form-label">Taille de l'entreprise</label>
+                            <input type="text" class="form-control" id="edit_company_size">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Source</label>
+                        <input type="text" class="form-control" id="edit_source">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" id="edit_notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveEditedProspect()">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Followup Modal -->
+<div class="modal fade" id="followupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Programmer une relance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="followupForm">
+                    <input type="hidden" name="prospect_id" id="followup_prospect_id">
+                    <div class="mb-3">
+                        <label class="form-label">Date de relance *</label>
+                        <input type="date" class="form-control" name="scheduled_date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Type de relance *</label>
+                        <select class="form-select" name="type" required>
+                            <option value="phone">Appel téléphonique</option>
+                            <option value="email">Email</option>
+                            <option value="meeting">Rendez-vous</option>
+                            <option value="visit">Visite</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveFollowup()">
+                    <i class="fas fa-calendar-check me-2"></i>Programmer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Convert Modal -->
+<div class="modal fade" id="convertModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Convertir le prospect</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="convert_prospect_id">
+                <p>Convertir ce prospect en :</p>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="conversion_type" id="convertClient" value="client" checked>
+                    <label class="form-check-label" for="convertClient">
+                        <strong>Client</strong><br>
+                        <small class="text-muted">Pour les entreprises qui vont créer des campagnes publicitaires</small>
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="conversion_type" id="convertPartner" value="partner">
+                    <label class="form-check-label" for="convertPartner">
+                        <strong>Partenaire</strong><br>
+                        <small class="text-muted">Pour les entreprises qui vont héberger nos équipements</small>
+                    </label>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Un compte utilisateur sera automatiquement créé et les identifiants seront envoyés par email au contact principal.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-success" onclick="confirmConversion()">
+                    <i class="fas fa-exchange-alt me-2"></i>Convertir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Client Modal -->
+<div class="modal fade" id="clientModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouveau client</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="clientForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nom de l'entreprise *</label>
+                            <input type="text" class="form-control" name="company_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Catégorie *</label>
+                            <select class="form-select" name="category" required>
+                                <option value="">Sélectionner</option>
+                                <option value="Agence de voyage">Agence de voyage</option>
+                                <option value="Hôtellerie">Hôtellerie</option>
+                                <option value="Restauration">Restauration</option>
+                                <option value="Transport">Transport</option>
+                                <option value="Commerce">Commerce</option>
+                                <option value="Autre">Autre</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Nom du contact *</label>
+                            <input type="text" class="form-control" name="contact_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email *</label>
+                            <input type="email" class="form-control" name="contact_email" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Téléphone</label>
+                            <input type="tel" class="form-control" name="contact_phone">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Statut</label>
+                            <select class="form-select" name="status">
+                                <option value="Actif">Actif</option>
+                                <option value="Inactif">Inactif</option>
+                                <option value="En attente">En attente</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Adresse</label>
+                            <textarea class="form-control" name="address" rows="2"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Informations supplémentaires</label>
+                            <textarea class="form-control" name="notes" rows="3"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveClient()">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Partner Modal -->
+<div class="modal fade" id="partnerModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouveau partenaire</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="partnerForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nom de l'entreprise *</label>
+                            <input type="text" class="form-control" name="company_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Type de partenariat *</label>
+                            <select class="form-select" name="partnership_type" required>
+                                <option value="">Sélectionner</option>
+                                <option value="Hébergeur">Hébergeur</option>
+                                <option value="Technologique">Technologique</option>
+                                <option value="Commercial">Commercial</option>
+                                <option value="Stratégique">Stratégique</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Nom du contact *</label>
+                            <input type="text" class="form-control" name="contact_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email *</label>
+                            <input type="email" class="form-control" name="contact_email" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Téléphone</label>
+                            <input type="tel" class="form-control" name="contact_phone">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Statut</label>
+                            <select class="form-select" name="status">
+                                <option value="Actif">Actif</option>
+                                <option value="Inactif">Inactif</option>
+                                <option value="En négociation">En négociation</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date de début</label>
+                            <input type="date" class="form-control" name="start_date">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Commercial assigné</label>
+                            <select class="form-select" name="assigned_to">
+                                <option value="">Sélectionner</option>
+                                {% for commercial in commercials %}
+                                <option value="{{ commercial.id }}">{{ commercial.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                        <!-- Adresse principal -->
+                            <label class="form-label">Pays *</label>
+                            <select class="form-select" name="country" id="country_partner" required>
+                                <option value="">Sélectionner un pays</option>
+                                <!-- Options chargées depuis la DB -->
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Informations supplémentaires</label>
+                            <textarea class="form-control" name="notes" rows="3"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="savePartner()">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Scripts pour gérer les onglets et les filtres
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialisation des filtres pour chaque onglet
+    initFilters();
+    
+    // Gestion du changement d'onglet
+    const tabEl = document.querySelector('button[data-bs-toggle="tab"]');
+    if (tabEl) {
+        tabEl.addEventListener('shown.bs.tab', function (event) {
+            const target = event.target.getAttribute('data-bs-target');
+            console.log('Onglet activé:', target);
+            // Réinitialiser les filtres selon l'onglet
+            resetFilters(target);
+        });
+    }
+});
+
+function initFilters() {
+    // Initialiser les événements de filtrage pour chaque onglet
+    document.getElementById('searchProspect')?.addEventListener('input', filterProspects);
+    document.getElementById('filterStatus')?.addEventListener('change', filterProspects);
+    document.getElementById('filterCategory')?.addEventListener('change', filterProspects);
+    document.getElementById('filterCommercial')?.addEventListener('change', filterProspects);
+    
+    document.getElementById('searchClient')?.addEventListener('input', filterClients);
+    document.getElementById('filterClientStatus')?.addEventListener('change', filterClients);
+    document.getElementById('filterClientCategory')?.addEventListener('change', filterClients);
+    
+    document.getElementById('searchPartner')?.addEventListener('input', filterPartners);
+    document.getElementById('filterPartnerType')?.addEventListener('change', filterPartners);
+    document.getElementById('filterPartnerStatus')?.addEventListener('change', filterPartners);
+}
+
+function filterProspects() {
+    // Implémenter la logique de filtrage des prospects
+    console.log('Filtrage des prospects');
+}
+
+function filterClients() {
+    // Implémenter la logique de filtrage des clients
+    console.log('Filtrage des clients');
+}
+
+function filterPartners() {
+    // Implémenter la logique de filtrage des partenaires
+    console.log('Filtrage des partenaires');
+}
+
+function resetFilters(tab) {
+    // Réinitialiser les filtres selon l'onglet sélectionné
+    console.log('Réinitialisation des filtres pour:', tab);
+}
+
+// Fonctions existantes pour la gestion des prospects
+function viewProspect(prospectId) {
+    const modal = new bootstrap.Modal(document.getElementById('prospectDetailModal'));
+    const content = document.getElementById('prospectDetailContent');
+    content.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Chargement...</div>';
+    modal.show();
+
+    fetch(`/prospects/${prospectId}`)
+        .then(res => res.json())
+        .then(resp => {
+            if (resp.success) {
+                const p = resp.prospect;
+                const followups = resp.followups;
+
+                let followupHtml = '<ul class="list-group">';
+                followups.forEach(f => {
+                    followupHtml += `<li class="list-group-item">
+                        ${f.scheduled_date} - ${f.type} - par ${f.performed_by_name}<br>
+                        <small>${f.notes || ''}</small>
+                    </li>`;
+                });
+                followupHtml += '</ul>';
+
+                content.innerHTML = `
+                    <p><strong>Entreprise:</strong> ${p.company_name}</p>
+                    <p><strong>Contact:</strong> ${p.contact_name} - ${p.contact_email} - ${p.contact_phone || '-'}</p>
+                    <p><strong>Catégorie:</strong> ${p.category || '-'}</p>
+                    <p><strong>Statut:</strong> ${p.status}</p>
+                    <p><strong>Commercial assigné:</strong> ${p.assigned_to_name || '-'}</p>
+                    <p><strong>Notes:</strong> ${p.notes || '-'}</p>
+                    <hr>
+                    <h6>Historique des relances</h6>
+                    ${followupHtml}
+                `;
+            } else {
+                content.innerHTML = `<div class="text-danger">${resp.error}</div>`;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            content.innerHTML = '<div class="text-danger">Impossible de charger le prospect.</div>';
+        });
+}
+
+
+// Ouvrir le modal et charger les données du prospect
+function editProspect(id) {
+    fetch(`/prospects/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                const prospect = data.prospect;
+                // Remplir les champs du formulaire
+                document.getElementById('edit_prospect_id').value = prospect.id;
+                document.getElementById('edit_company_name').value = prospect.company_name || '';
+                document.getElementById('edit_category').value = prospect.category || '';
+                document.getElementById('edit_status').value = prospect.status || '';
+                document.getElementById('edit_contact_name').value = prospect.contact_name || '';
+                document.getElementById('edit_contact_email').value = prospect.contact_email || '';
+                document.getElementById('edit_contact_phone').value = prospect.contact_phone || '';
+                document.getElementById('edit_sector').value = prospect.sector || '';
+                document.getElementById('edit_company_size').value = prospect.company_size || '';
+                document.getElementById('edit_source').value = prospect.source || '';
+                document.getElementById('edit_notes').value = prospect.notes || '';
+                document.getElementById('edit_assigned_to').value = prospect.assigned_to || '';
+
+                // Afficher le modal
+                var modal = new bootstrap.Modal(document.getElementById('editProspectModal'));
+                modal.show();
+            } else {
+                alert(data.error || 'Impossible de charger le prospect.');
+            }
+        })
+        .catch(err => console.error(err));
+}
+
+// Sauvegarder les modifications via AJAX
+function saveEditedProspect() {
+    const id = document.getElementById('edit_prospect_id').value;
+    const payload = {
+        company_name: document.getElementById('edit_company_name').value,
+        category: document.getElementById('edit_category').value,
+        status: document.getElementById('edit_status').value,
+        contact_name: document.getElementById('edit_contact_name').value,
+        contact_email: document.getElementById('edit_contact_email').value,
+        contact_phone: document.getElementById('edit_contact_phone').value,
+        address_line: document.getElementById('edit_address').value,
+        sector: document.getElementById('edit_sector').value,
+        company_size: document.getElementById('edit_company_size').value,
+        source: document.getElementById('edit_source').value,
+        notes: document.getElementById('edit_notes').value,
+        assigned_to: document.getElementById('edit_assigned_to').value
+    };
+
+    fetch(`/prospects/${id}/edit`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Erreur lors de la sauvegarde');
+        }
+    })
+    .catch(err => console.error(err));
+}
+
+
+function addFollowup(id) {
+    document.getElementById('followup_prospect_id').value = id;
+    const followupModal = new bootstrap.Modal(document.getElementById('followupModal'));
+    followupModal.show();
+}
+
+function convertProspect(id) {
+    document.getElementById('convert_prospect_id').value = id;
+    const convertModal = new bootstrap.Modal(document.getElementById('convertModal'));
+    convertModal.show();
+}
+
+function deleteProspect(id) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce prospect ?')) {
+        fetch(`/prospects/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur lors de la suppression: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Une erreur est survenue lors de la suppression.');
+        });
+    }
+}
+
+function saveProspect() {
+    const form = document.getElementById("prospectForm");
+    const formData = new FormData(form);
+
+    // Transformer en JSON
+    const data = {};
+    formData.forEach((value, key) => {
+        data[key] = value;
+    });
+
+    fetch("/prospects/create", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(resp => {
+        if (resp.success) {
+            alert("Prospect enregistré !");
+            form.reset();
+            const modal = bootstrap.Modal.getInstance(document.getElementById('prospectModal'));
+            modal.hide();
+        } else {
+            alert("Erreur : " + resp.message);
+        }
+    })
+    .catch(err => {
+        console.error("Erreur sauvegarde prospect:", err);
+        alert("Erreur lors de l'enregistrement.");
+    });
+}
+
+let currentFollowupProspectId = null;
+
+// Ouvrir le modal et initialiser l'ID du prospect
+function addFollowup(prospectId) {
+    currentFollowupProspectId = prospectId;
+    document.getElementById('followup_prospect_id').value = prospectId;
+    const modal = new bootstrap.Modal(document.getElementById('followupModal'));
+    modal.show();
+}
+
+// Envoyer la relance
+function saveFollowup() {
+    const form = document.getElementById('followupForm');
+    const formData = new FormData(form);
+
+    // Validation simple
+    const scheduledDate = formData.get('scheduled_date');
+    const type = formData.get('type');
+    if (!scheduledDate || !type) {
+        alert("Veuillez remplir la date et le type de relance.");
+        return;
+    }
+
+    const data = {};
+    formData.forEach((value, key) => data[key] = value);
+
+    fetch(`/prospects/${currentFollowupProspectId}/followup`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(resp => {
+        if (resp.success) {
+            alert("Relance programmée avec succès !");
+            form.reset();
+            const modal = bootstrap.Modal.getInstance(document.getElementById('followupModal'));
+            modal.hide();
+        } else {
+            alert("Erreur : " + (resp.error || "Impossible de sauvegarder la relance."));
+        }
+    })
+    .catch(err => {
+        console.error("Erreur sauvegarde relance:", err);
+        alert("Erreur lors de l'enregistrement de la relance.");
+    });
+}
+
+function confirmConversion() {
+    // Logique pour confirmer la conversion
+    console.log('Conversion confirmée');
+}
+
+function exportProspects() {
+    // Logique pour exporter les prospects
+    console.log('Export des prospects');
+}
+</script>
+
+
+<script>
+    // Dans la section scripts de votre template
+function saveClient() {
+    const formData = new FormData(document.getElementById('clientForm'));
+    const data = Object.fromEntries(formData.entries());
+    
+    fetch('/prospects/create-client', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            $('#clientModal').modal('hide');
+            location.reload();
+        } else {
+            alert('Erreur: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Une erreur est survenue');
+    });
+}
+
+function savePartner() {
+    const formData = new FormData(document.getElementById('partnerForm'));
+    const data = Object.fromEntries(formData.entries());
+    
+    fetch('/prospects/create-partner', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            $('#partnerModal').modal('hide');
+            location.reload();
+        } else {
+            alert('Erreur: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Une erreur est survenue');
+    });
+}
+
+function confirmConversion() {
+    const prospectId = document.getElementById('convert_prospect_id').value;
+    const conversionType = document.querySelector('input[name="conversion_type"]:checked').value;
+    
+    fetch(`/prospects/${prospectId}/convert`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ type: conversionType })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            $('#convertModal').modal('hide');
+            location.reload();
+        } else {
+            alert('Erreur: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Une erreur est survenue');
+    });
+}
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const countrySelect = document.getElementById("country");
+
+    if (countrySelect) {
+        // Charger les pays seulement si l'élément existe
+        fetch("/location/countries")
+            .then(res => res.json())
+            .then(data => {
+                data.forEach(c => {
+                    const opt = document.createElement("option");
+                    opt.value = c.code;
+                    opt.textContent = c.name;
+                    countrySelect.appendChild(opt);
+                });
+            })
+            .catch(err => console.error("Erreur chargement pays:", err));
+    }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    const countrySelect = document.getElementById("country_partner");
+
+    if (countrySelect) {
+        // Charger les pays seulement si l'élément existe
+        fetch("/location/countries")
+            .then(res => res.json())
+            .then(data => {
+                data.forEach(c => {
+                    const opt = document.createElement("option");
+                    opt.value = c.code;
+                    opt.textContent = c.name;
+                    countrySelect.appendChild(opt);
+                });
+            })
+            .catch(err => console.error("Erreur chargement pays:", err));
+    }
+});
+</script>
+
+
+{% endblock %}

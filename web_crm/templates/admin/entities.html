@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des entités - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Gestion des entités</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Administration</a></li>
+                <li class="breadcrumb-item active">Entités</li>
+            </ol>
+        </nav>
+    </div>
+    <div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#entityModal">
+            <i class="fas fa-plus me-2"></i>Nouvelle entité
+        </button>
+    </div>
+</div>
+
+<!-- Entity Types Tabs -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link active" data-bs-toggle="tab" href="#all">Toutes ({{ entities|length }})</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#admin">Admin</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#partners">Partenaires</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#clients">Clients</a>
+    </li>
+</ul>
+
+<!-- Entities Table -->
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="all">
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Entité</th>
+                                <th>Type</th>
+                                <th>Contact</th>
+                                <th>Utilisateurs</th>
+                                <th>Sites</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entity in entities %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if entity.logo %}
+                                        <img src="{{ entity.logo }}" class="avatar avatar-sm me-3">
+                                        {% else %}
+                                        <div class="avatar avatar-sm me-3">
+                                            {{ entity.name[0] }}
+                                        </div>
+                                        {% endif %}
+                                        <div>
+                                            <strong>{{ entity.name }}</strong><br>
+                                            <small class="text-muted">ID: {{ entity.id }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if entity.type == 'admin' %}
+                                        <span class="badge badge-primary">Admin</span>
+                                    {% elif entity.type == 'partner' %}
+                                        <span class="badge badge-success">Partenaire</span>
+                                    {% elif entity.type == 'client' %}
+                                        <span class="badge badge-info">Client</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ entity.email }}<br>
+                                    <small class="text-muted">{{ entity.phone }}</small>
+                                </td>
+                                <td>{{ entity.users_count|default(0) }}</td>
+                                <td>{{ entity.sites_count|default(0) }}</td>
+                                <td>
+                                    <span class="badge badge-success">Active</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-light" onclick="editEntity({{ entity.id }})">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-light" onclick="viewEntity({{ entity.id }})">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-light text-danger" onclick="deleteEntity({{ entity.id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Entity Modal -->
+<div class="modal fade" id="entityModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouvelle entité</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="entityForm">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Nom de l'entité *</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Type *</label>
+                            <select class="form-select" name="type" required>
+                                <option value="">Sélectionner</option>
+                                <option value="partner">Partenaire</option>
+                                <option value="client">Client</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email *</label>
+                            <input type="email" class="form-control" name="email" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Téléphone</label>
+                            <input type="tel" class="form-control" name="phone">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Adresse</label>
+                            <textarea class="form-control" name="address" rows="2"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Logo</label>
+                            <input type="file" class="form-control" name="logo" accept="image/*">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveEntity()">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const EntityManager = {
+    saveEntity() {
+        const form = document.getElementById('entityForm');
+        const formData = new FormData(form);
+        
+        const entityId = form.dataset.entityId;
+        const url = entityId ? `/admin/entities/${entityId}/update` : '/admin/entities/create';
+        
+        fetch(url, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showAlert('success', entityId ? 'Entité modifiée' : 'Entité créée');
+                location.reload();
+            } else {
+                showAlert('danger', result.error || 'Erreur lors de l\'enregistrement');
+            }
+        });
+    },
+    
+    editEntity(entityId) {
+        fetch(`/admin/entities/${entityId}`)
+            .then(response => response.json())
+            .then(entity => {
+                const form = document.getElementById('entityForm');
+                form.dataset.entityId = entityId;
+                
+                // Fill form fields
+                Object.keys(entity).forEach(key => {
+                    if (form.elements[key]) {
+                        form.elements[key].value = entity[key];
+                    }
+                });
+                
+                // Update modal title
+                document.querySelector('#entityModal .modal-title').textContent = 'Modifier l\'entité';
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('entityModal'));
+                modal.show();
+            });
+    },
+    
+    viewEntity(entityId) {
+        window.location.href = `/admin/entities/${entityId}`;
+    },
+    
+    deleteEntity(entityId) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette entité ?')) {
+            fetch(`/admin/entities/${entityId}/delete`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    showAlert('success', 'Entité supprimée');
+                    location.reload();
+                } else {
+                    showAlert('danger', result.error || 'Erreur lors de la suppression');
+                }
+            });
+        }
+    }
+};
+</script>
+{% endblock %}

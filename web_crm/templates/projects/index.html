@@ -1,0 +1,616 @@
+{% extends "base.html" %}
+
+{% block title %}Projets - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="page-title">Gestion de Projets</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item active">Projets</li>
+            </ol>
+        </nav>
+    </div>
+    <div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#projectModal">
+            <i class="fas fa-plus me-2"></i>Nouveau projet
+        </button>
+    </div>
+</div>
+
+<!-- Project Cards -->
+<div class="row mb-4">
+    {% for project in projects %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card h-100" onclick="viewProject({{ project.id }})" style="cursor: pointer;">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">{{ project.name }}</h6>
+                    {% if project.status == 'planning' %}
+                        <span class="badge badge-secondary">Planification</span>
+                    {% elif project.status == 'in_progress' %}
+                        <span class="badge badge-warning">En cours</span>
+                    {% elif project.status == 'completed' %}
+                        <span class="badge badge-success">Terminé</span>
+                    {% else %}
+                        <span class="badge badge-danger">Annulé</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">
+                    <i class="fas fa-building me-2"></i>{{ project.client_name }}
+                </p>
+                <p class="mb-2">
+                    <i class="fas fa-user me-2"></i>Chef de projet: {{ project.manager_name }}
+                </p>
+                <p class="mb-2">
+                    <i class="fas fa-calendar me-2"></i>
+                    {{ project.start_date.strftime('%d/%m/%Y') if project.start_date else '' }} - 
+                    {{ project.end_date.strftime('%d/%m/%Y') if project.end_date else '' }}
+                </p>
+                
+                <!-- Progress bar -->
+                <div class="progress mb-2" style="height: 20px;">
+                    {% set progress = (project.completed_tasks / project.task_count * 100) if project.task_count > 0 else 0 %}
+                    <div class="progress-bar" role="progressbar" style="width: {{ progress }}%">
+                        {{ "%.0f"|format(progress) }}%
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <small>{{ project.completed_tasks }}/{{ project.task_count }} tâches</small>
+                    <small>Budget: {{ "%.0f"|format(project.budget) }}€</small>
+                </div>
+            </div>
+            <div class="card-footer" onclick="event.stopPropagation();">
+                <div class="btn-group btn-group-sm w-100">
+                    <button class="btn btn-light" onclick="editProject({{ project.id }})" title="Modifier">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-light" onclick="showTaskModal({{ project.id }})" title="Ajouter tâche">
+                        <i class="fas fa-tasks"></i>
+                    </button>
+                    <button class="btn btn-light" onclick="viewGantt({{ project.id }})" title="Gantt">
+                        <i class="fas fa-chart-gantt"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    
+    <!-- Add Project Card -->
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card h-100 text-center" style="border: 2px dashed #dee2e6; cursor: pointer; min-height: 300px;" 
+             onclick="$('#projectModal').modal('show')">
+            <div class="card-body d-flex flex-column justify-content-center">
+                <i class="fas fa-plus-circle fa-3x text-muted mb-3"></i>
+                <h6 class="text-muted">Créer un nouveau projet</h6>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Project Modal -->
+<div class="modal fade" id="projectModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouveau projet</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="projectForm">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Nom du projet *</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Statut</label>
+                            <select class="form-select" name="status">
+                                <option value="planning">Planification</option>
+                                <option value="in_progress">En cours</option>
+                                <option value="completed">Terminé</option>
+                                <option value="cancelled">Annulé</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Client *</label>
+                            <select class="form-select" name="client_id" required>
+                                <option value="">Sélectionner un client</option>
+                                {% for client in clients %}
+                                <option value="{{ client.id }}">{{ client.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Chef de projet *</label>
+                            <select class="form-select" name="project_manager_id" required>
+                                <option value="">Sélectionner</option>
+                                {% for manager in managers %}
+                                <option value="{{ manager.id }}">{{ manager.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date de début *</label>
+                            <input type="date" class="form-control" name="start_date" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date de fin *</label>
+                            <input type="date" class="form-control" name="end_date" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Budget</label>
+                            <input type="number" class="form-control" name="budget" step="100">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" rows="4"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveProject()">
+                    <i class="fas fa-save me-2"></i>Créer le projet
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Task Modal -->
+<div class="modal fade" id="taskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouvelle tâche</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="taskForm">
+                    <input type="hidden" name="project_id" id="task_project_id">
+                    <div class="mb-3">
+                        <label class="form-label">Nom de la tâche *</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Assigné à</label>
+                            <select class="form-select" name="assigned_to">
+                                <option value="">Non assigné</option>
+                                {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Site concerné</label>
+                            <select class="form-select" name="site_id">
+                                <option value="">Aucun</option>
+                                {% for site in sites %}
+                                <option value="{{ site.id }}">{{ site.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Date début</label>
+                            <input type="date" class="form-control" name="start_date">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date fin</label>
+                            <input type="date" class="form-control" name="end_date">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Priorité</label>
+                            <select class="form-select" name="priority">
+                                <option value="low">Basse</option>
+                                <option value="normal" selected>Normale</option>
+                                <option value="high">Haute</option>
+                                <option value="urgent">Urgente</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveTask()">
+                    <i class="fas fa-save me-2"></i>Créer la tâche
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Project Detail View (Alternative) -->
+<div class="modal fade" id="projectDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="project-detail-title">Détail du projet</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <!-- Kanban Board -->
+                        <div class="kanban-board">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="kanban-column">
+                                        <h6 class="kanban-header">À faire</h6>
+                                        <div class="kanban-items" id="todo-tasks">
+                                            <!-- Tasks cards -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="kanban-column">
+                                        <h6 class="kanban-header">En cours</h6>
+                                        <div class="kanban-items" id="in-progress-tasks">
+                                            <!-- Tasks cards -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="kanban-column">
+                                        <h6 class="kanban-header">En test</h6>
+                                        <div class="kanban-items" id="testing-tasks">
+                                            <!-- Tasks cards -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="kanban-column">
+                                        <h6 class="kanban-header">Terminé</h6>
+                                        <div class="kanban-items" id="done-tasks">
+                                            <!-- Tasks cards -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <!-- Project Info -->
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <h6>Informations du projet</h6>
+                                <div id="project-info">
+                                    <!-- Project details -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Team -->
+                        <div class="card">
+                            <div class="card-body">
+                                <h6>Équipe</h6>
+                                <div id="project-team">
+                                    <!-- Team members -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Finance Functions
+function showInvoiceModal() {
+    const modal = new bootstrap.Modal(document.getElementById('invoiceModal'));
+    modal.show();
+}
+
+function showQuoteModal() {
+    const modal = new bootstrap.Modal(document.getElementById('quoteModal'));
+    modal.show();
+}
+
+function showPaymentModal() {
+    const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
+    modal.show();
+}
+
+function addInvoiceLine() {
+    const tbody = document.getElementById('invoice-lines');
+    const newRow = tbody.rows[0].cloneNode(true);
+    // Clear values
+    newRow.querySelectorAll('input').forEach(input => {
+        if (input.type !== 'number' || input.name === 'quantity[]') {
+            input.value = input.type === 'number' && input.name === 'quantity[]' ? '1' : '';
+        }
+    });
+    tbody.appendChild(newRow);
+}
+
+function removeLine(btn) {
+    const tbody = btn.closest('tbody');
+    if (tbody.rows.length > 1) {
+        btn.closest('tr').remove();
+        calculateInvoiceTotal();
+    }
+}
+
+function calculateLine(input) {
+    const row = input.closest('tr');
+    const quantity = parseFloat(row.querySelector('[name="quantity[]"]').value) || 0;
+    const unitPrice = parseFloat(row.querySelector('[name="unit_price[]"]').value) || 0;
+    const taxRate = parseFloat(row.querySelector('[name="tax_rate[]"]').value) || 0;
+    
+    const lineTotal = quantity * unitPrice;
+    row.querySelector('[name="line_total[]"]').value = lineTotal.toFixed(2);
+    
+    calculateInvoiceTotal();
+}
+
+function calculateInvoiceTotal() {
+    let subtotal = 0;
+    let taxAmount = 0;
+    
+    document.querySelectorAll('#invoice-lines tr').forEach(row => {
+        const quantity = parseFloat(row.querySelector('[name="quantity[]"]').value) || 0;
+        const unitPrice = parseFloat(row.querySelector('[name="unit_price[]"]').value) || 0;
+        const taxRate = parseFloat(row.querySelector('[name="tax_rate[]"]').value) || 0;
+        
+        const lineTotal = quantity * unitPrice;
+        subtotal += lineTotal;
+        taxAmount += lineTotal * (taxRate / 100);
+    });
+    
+    const total = subtotal + taxAmount;
+    
+    document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+    document.getElementById('tax_amount').textContent = taxAmount.toFixed(2);
+    document.getElementById('total_amount').textContent = total.toFixed(2);
+}
+
+function saveInvoice() {
+    const form = document.getElementById('invoiceForm');
+    const formData = new FormData(form);
+    
+    // Collect invoice lines
+    const lines = [];
+    document.querySelectorAll('#invoice-lines tr').forEach(row => {
+        lines.push({
+            description: row.querySelector('[name="description[]"]').value,
+            quantity: row.querySelector('[name="quantity[]"]').value,
+            unit_price: row.querySelector('[name="unit_price[]"]').value,
+            tax_rate: row.querySelector('[name="tax_rate[]"]').value,
+            line_total: row.querySelector('[name="line_total[]"]').value
+        });
+    });
+    
+    const data = {
+        client_id: formData.get('client_id'),
+        invoice_date: formData.get('invoice_date'),
+        due_date: formData.get('due_date'),
+        payment_terms: formData.get('payment_terms'),
+        lines: lines,
+        subtotal: document.getElementById('subtotal').textContent,
+        tax_amount: document.getElementById('tax_amount').textContent,
+        total_amount: document.getElementById('total_amount').textContent
+    };
+    
+    fetch('/finance/invoices/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function savePayment() {
+    const form = document.getElementById('paymentForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    fetch('/finance/payments/record', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+            alert('Paiement enregistré avec succès');
+            location.reload();
+        }
+    });
+}
+
+// Projects Functions
+function saveProject() {
+    const form = document.getElementById('projectForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    fetch('/projects/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function viewProject(id) {
+    // Load project details and show in modal or redirect
+    fetch(`/projects/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            // Populate project detail modal
+            document.getElementById('project-detail-title').textContent = data.name;
+            // Load tasks into kanban
+            loadProjectTasks(id);
+            
+            const modal = new bootstrap.Modal(document.getElementById('projectDetailModal'));
+            modal.show();
+        });
+}
+
+function showTaskModal(projectId) {
+    document.getElementById('task_project_id').value = projectId;
+    const modal = new bootstrap.Modal(document.getElementById('taskModal'));
+    modal.show();
+}
+
+function saveTask() {
+    const form = document.getElementById('taskForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    fetch('/projects/tasks/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('taskModal')).hide();
+            location.reload();
+        }
+    });
+}
+
+// Purchases Functions
+function savePurchaseOrder() {
+    const form = document.getElementById('purchaseOrderForm');
+    const lines = [];
+    
+    document.querySelectorAll('#po-lines tr').forEach(row => {
+        lines.push({
+            item_name: row.querySelector('[name="item_name[]"]').value,
+            quantity: row.querySelector('[name="quantity[]"]').value,
+            unit_price: row.querySelector('[name="unit_price[]"]').value,
+            line_total: row.querySelector('[name="line_total[]"]').value,
+            warehouse_id: row.querySelector('[name="warehouse_id[]"]').value
+        });
+    });
+    
+    const data = {
+        supplier_id: form.supplier_id.value,
+        order_date: form.order_date.value,
+        expected_delivery: form.expected_delivery.value,
+        notes: form.notes.value,
+        lines: lines,
+        total_amount: document.getElementById('po_total').textContent
+    };
+    
+    fetch('/purchases/orders/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function addPOLine() {
+    const tbody = document.getElementById('po-lines');
+    const newRow = tbody.rows[0].cloneNode(true);
+    newRow.querySelectorAll('input').forEach(input => {
+        input.value = input.name === 'quantity[]' ? '1' : '';
+    });
+    tbody.appendChild(newRow);
+}
+
+function calculatePOLine(input) {
+    const row = input.closest('tr');
+    const quantity = parseFloat(row.querySelector('[name="quantity[]"]').value) || 0;
+    const unitPrice = parseFloat(row.querySelector('[name="unit_price[]"]').value) || 0;
+    const lineTotal = quantity * unitPrice;
+    
+    row.querySelector('[name="line_total[]"]').value = lineTotal.toFixed(2);
+    
+    // Calculate total
+    let total = 0;
+    document.querySelectorAll('[name="line_total[]"]').forEach(input => {
+        total += parseFloat(input.value) || 0;
+    });
+    
+    document.getElementById('po_total').textContent = total.toFixed(2);
+}
+
+function receiveOrder(orderId) {
+    if (confirm('Confirmer la réception de cette commande ?')) {
+        fetch(`/purchases/orders/${orderId}/receive`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Commande réceptionnée. Stock mis à jour.');
+                location.reload();
+            }
+        });
+    }
+}
+
+// Chart initialization
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize revenue chart if on finance page
+    if (document.getElementById('paymentsChart')) {
+        const ctx = document.getElementById('paymentsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
+                datasets: [{
+                    label: 'Paiements reçus',
+                    data: [12000, 19000, 15000, 25000, 22000, 30000],
+                    borderColor: '#0F7BFF',
+                    backgroundColor: 'rgba(15, 123, 255, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1023 @@
+{% extends "base.html" %}
+
+{% block title %}Campagnes - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="page-title">Gestion des campagnes</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item active">Campagnes</li>
+            </ol>
+        </nav>
+    </div>
+    <div>
+        {% if role not in ['partner'] %}
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#campaignModal">
+            <i class="fas fa-plus me-2"></i>Nouvelle campagne
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+
+<!-- Statistics -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="fas fa-play-circle"></i>
+            </div>
+            <div class="stat-value">{{ stats.active }}</div>
+            <div class="stat-label">Campagnes actives</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="fas fa-euro-sign"></i>
+            </div>
+            <div class="stat-value">{{ "%.0f"|format(stats.total_budget) }}Ar</div>
+            <div class="stat-label">Budget total actif</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-value">{{ stats.completed }}</div>
+            <div class="stat-label">Campagnes terminées</div>
+        </div>
+    </div>
+</div>
+
+<!-- Campaigns Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Nom de la campagne</th>
+                        <th>Client</th>
+                            {% if role == 'partner' %}
+                                <th>Mes Revenus</th>
+                                <th>Mes Sites</th>
+                                <th>Statut Paiement</th>
+                            {% else %}
+                                <th>Budget</th>
+                                <th>Sites/Partenaires</th>
+                            {% endif %}
+                        <th>Période</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for campaign in campaigns %}
+                    <tr onclick="viewCampaignModal({{ campaign.id }})" style="cursor: pointer;">
+                        <td>
+                            <strong>{{ campaign.name }}</strong>
+                        </td>
+                        <td>{{ campaign.client_name }}</td>
+                        
+                        {% if role == 'partner' %}
+                            <!-- Affichage pour partenaire : seulement ses revenus -->
+                            <td>
+                                <strong>{{ "%.0f"|format(campaign.partner_revenue or 0) }} Ar</strong>
+                            </td>
+                            <td>
+                                <span class="badge badge-info">{{ campaign.site_count or 0 }} sites</span>
+                            </td>
+                            <td>
+                                {% if campaign.revenue_status == 'paid' %}
+                                    <span class="badge badge-success">Payé</span>
+                                {% else %}
+                                    <span class="badge badge-warning">En attente</span>
+                                {% endif %}
+                            </td>
+                        {% else %}
+                            <!-- Affichage pour admin/client : budget complet -->
+                            <td>
+                                <strong>{{ "%.0f"|format(campaign.budget) }} Ar</strong><br>
+                                <small class="text-muted">
+                                    Admin: {{ "%.0f"|format(campaign.admin_share) }} Ar | 
+                                    Partners: {{ "%.0f"|format(campaign.partners_share) }} Ar
+                                </small>
+                            </td>
+                            <td>
+                                {% if campaign.partners_count %}
+                                    <span class="badge badge-primary">{{ campaign.partners_count }} partenaires</span>
+                                {% elif campaign.site_count %}
+                                    <span class="badge badge-primary">{{ campaign.site_count }} sites</span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        {% endif %}
+                        
+                        <td>
+                            {{ campaign.start_date.strftime('%d/%m/%Y') }} - {{ campaign.end_date.strftime('%d/%m/%Y') }}
+                        </td>
+                        <td>
+                            {% if campaign.status == 'draft' %}
+                                <span class="badge badge-warning">Brouillon</span>
+                            {% elif campaign.status == 'active' %}
+                                <span class="badge badge-success">Active</span>
+                            {% elif campaign.status == 'paused' %}
+                                <span class="badge badge-warning">En pause</span>
+                            {% elif campaign.status == 'completed' %}
+                                <span class="badge badge-secondary" style="color: #302f2fff;">Terminée</span>
+                            {% endif %}
+                        </td>
+                        <td onclick="event.stopPropagation();">
+                            <div class="btn-group btn-group-sm">
+                                {% if role == 'partner' %}
+                                    <!-- Actions pour partenaire -->
+                                    <button class="btn btn-light" onclick="viewCampaignModal({{ campaign.id }})" title="Voir détails">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    {% if campaign.status in ['active', 'completed'] %}
+                                    <button class="btn btn-light text-info" onclick="uploadProof({{ campaign.id }})" title="Uploader preuves">
+                                        <i class="fas fa-upload"></i>
+                                    </button>
+                                    {% endif %}
+                                {% else %}
+                                    <!-- Actions pour admin/client -->
+                                    {% if campaign.status == 'draft' %}
+                                    <button class="btn btn-light text-success" onclick="activateCampaign({{ campaign.id }})" title="Activer">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                    {% elif campaign.status == 'active' %}
+                                    <button class="btn btn-light text-warning" onclick="pauseCampaign({{ campaign.id }})" title="Mettre en pause">
+                                        <i class="fas fa-pause"></i>
+                                    </button>
+                                    <button class="btn btn-light text-dark" onclick="completeCampaign({{ campaign.id }})" title="Terminer">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    {% elif campaign.status == 'paused' %}
+                                    <button class="btn btn-light text-success" onclick="resumeCampaign({{ campaign.id }})" title="Reprendre">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                    <button class="btn btn-light text-dark" onclick="completeCampaign({{ campaign.id }})" title="Terminer">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    {% endif %}
+                                    <button class="btn btn-light" onclick="viewCampaignModal({{ campaign.id }})" title="Voir détails">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="btn btn-light" onclick="viewStats({{ campaign.id }})" title="Statistiques">
+                                        <i class="fas fa-chart-bar"></i>
+                                    </button>
+                                    <button class="btn btn-light text-success" onclick="managePayments({{ campaign.id }})" title="Gérer paiements">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </button>
+                                    <button class="btn btn-light text-primary" onclick="viewProof({{ campaign.id }}, '{{ campaign.name }}')" title="Vérifier preuves">
+                                        <i class="fas fa-images"></i>
+                                    </button>
+                                    <button class="btn btn-light text-danger" onclick="deleteCampaign({{ campaign.id }})" title="Supprimer">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour créer une nouvelle campagne -->
+<div class="modal fade" id="campaignModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouvelle campagne</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="campaignForm">
+                    <div class="row g-3">
+                        <!-- Informations générales -->
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">Informations générales</h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Nom de la campagne *</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Client *</label>
+                            <select class="form-select" name="client_id" id="client_select" required>
+                                <option value="">Sélectionner un client</option>
+                                <!-- Les options seront chargées par JavaScript -->
+                            </select>
+                        </div>
+                        
+                        <!-- Budget et dates -->
+                        <div class="col-12 mt-3">
+                            <h6 class="text-primary mb-3">Budget et planification</h6>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Budget total (Ar) *</label>
+                            <input type="number" class="form-control" name="budget" id="campaign_budget" required onchange="calculateShares()">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date de début *</label>
+                            <input type="date" class="form-control" name="start_date" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date de fin *</label>
+                            <input type="date" class="form-control" name="end_date" required>
+                        </div>
+                        
+                        <!-- Répartition automatique -->
+                        {% if role not in ['partner'] %}
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <h6>Répartition automatique du budget :</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>Part Admin (70%) :</strong> <span id="admin_share">0</span>Ar
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Part Partenaires (30%) :</strong> <span id="partners_share">0</span>Ar
+                                    </div>
+                                </div>
+                                <small class="text-muted">La part partenaires sera répartie automatiquement selon le nombre de sites de chaque partenaire.</small>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Ciblage -->
+                        <div class="col-12 mt-3">
+                            <h6 class="text-primary mb-3">Ciblage</h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Zones géographiques</label>
+                            <select class="form-select" name="geo_targeting" multiple>
+                                <option value="Antananarivo">Antananarivo</option>
+                                <option value="Mahajanga">Mahajanga</option>
+                                <option value="Toamasina">Toamasina</option>
+                                <option value="Fianarantsoa">Fianarantsoa</option>
+                                <option value="Toliara">Toliara</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Types de sites</label>
+                            <select class="form-select" name="site_types" multiple>
+                                <option value="Transport">Transport</option>
+                                <option value="Hôtel">Hôtel</option>
+                                <option value="Restaurant">Restaurant</option>
+                                <option value="Bar">Bar</option>
+                                <option value="Commerce">Commerce</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Créatifs -->
+                        <div class="col-12 mt-3">
+                            <h6 class="text-primary mb-3">Créatifs publicitaires</h6>
+                        </div>
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">Uploader les créatifs</label>
+                                <input type="file" class="form-control" name="creatives" multiple accept="image/*,video/*">
+                                <small class="text-muted">Formats acceptés : JPG, PNG, MP4. Taille max : 50MB</small>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveCampaign()">
+                    <i class="fas fa-save me-2"></i>Créer la campagne
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour voir les détails d'une campagne -->
+<div class="modal fade" id="campaignDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails de la campagne</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="campaignDetailContent">
+                <!-- Le contenu sera chargé dynamiquement -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour visualiser une preuve -->
+<div class="modal fade" id="proofViewerModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Preuve de diffusion - <span id="proofCampaignName"></span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <!-- Aperçu média -->
+          <div class="col-md-8 text-center" id="proofMediaPreview">
+            <!-- Ici image ou vidéo -->
+          </div>
+
+          <!-- Détails fichier -->
+          <div class="col-md-4" id="proofFileDetails">
+            <!-- Métadonnées -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-success" id="approveBtn">
+          <i class="fas fa-check"></i> Valider
+        </button>
+        <button class="btn btn-danger" id="rejectBtn">
+          <i class="fas fa-times"></i> Rejeter
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal pour upload des preuves (partenaires seulement) -->
+{% if role == 'partner' %}
+<div class="modal fade" id="uploadProofModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Uploader des preuves de diffusion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadProofForm">
+                    <input type="hidden" id="proof_campaign_id" name="campaign_id">
+                    <div class="mb-3">
+                        <label class="form-label">Sélectionner un site</label>
+                        <select class="form-select" id="proof_site_id" name="site_id" required>
+                            <option value="">Sélectionner un site</option>
+                            <!-- Sites chargés dynamiquement par JavaScript -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Images de preuve</label>
+                        <input type="file" class="form-control" name="proof_images" multiple accept="image/*" required>
+                        <small class="text-muted">Formats acceptés : JPG, PNG. Taille max : 5MB par image</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="submitProof()">
+                    <i class="fas fa-upload me-2"></i>Uploader
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal pour gérer les paiements -->
+<div class="modal fade" id="paymentManagementModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Gestion des paiements - <span id="paymentCampaignName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="paymentManagementContent">
+                <!-- Contenu chargé dynamiquement -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-primary" onclick="redirectToFinance()">
+                    <i class="fas fa-external-link-alt me-2"></i>Ouvrir dans Finance
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+
+<script>
+// ===== FONCTIONS DE BASE =====
+function calculateShares() {
+    const budget = parseFloat(document.getElementById('campaign_budget').value) || 0;
+    const adminShare = budget * 0.7;
+    const partnersShare = budget * 0.3;
+    
+    document.getElementById('admin_share').textContent = adminShare.toFixed(0);
+    document.getElementById('partners_share').textContent = partnersShare.toFixed(0);
+}
+
+function getStatusBadge(status) {
+    switch(status) {
+        case 'draft': return 'secondary';
+        case 'active': return 'success';
+        case 'paused': return 'warning';
+        case 'completed': return 'info';
+        default: return 'secondary';
+    }
+}
+
+function getStatusText(status) {
+    switch(status) {
+        case 'draft': return 'Brouillon';
+        case 'active': return 'Active';
+        case 'paused': return 'En pause';
+        case 'completed': return 'Terminée';
+        default: return status;
+    }
+}
+
+// ===== GESTION DES CAMPAGNES =====
+function saveCampaign() {
+    const form = document.getElementById('campaignForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    // Convertir les champs numériques
+    data.budget = parseFloat(data.budget);
+    
+    // Gérer les sélections multiples
+    data.geo_targeting = formData.getAll('geo_targeting');
+    data.site_types = formData.getAll('site_types');
+    
+    fetch('/campaigns/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('campaignModal'));
+            modal.hide();
+            alert('Campagne créée avec succès');
+            window.location.reload();
+        } else {
+            alert('Erreur: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Une erreur est survenue');
+    });
+}
+
+function viewCampaignModal(campaignId) {
+    viewCampaign(campaignId);
+}
+
+function viewCampaign(campaignId) {
+    fetch(`/campaigns/api/${campaignId}`)
+        .then(response => {
+            if (!response.ok) throw new Error('Erreur de chargement');
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+            
+            const campaign = data.campaign;
+            const revenue = data.revenue_distribution;
+            const sites = data.sites;
+            const userRole = '{{ role }}';
+            
+            let content = '';
+            
+            if (userRole === 'partner') {
+                content = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Informations de la campagne</h6>
+                            <p><strong>Nom:</strong> ${campaign.name}</p>
+                            <p><strong>Client:</strong> ${campaign.client_name}</p>
+                            <p><strong>Budget total:</strong> ${parseFloat(campaign.budget).toFixed(0)} Ar</p>
+                            <p><strong>Période:</strong> ${new Date(campaign.start_date).toLocaleDateString()} - ${new Date(campaign.end_date).toLocaleDateString()}</p>
+                            <p><strong>Statut:</strong> <span class="badge badge-${getStatusBadge(campaign.status)}">${getStatusText(campaign.status)}</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Vos revenus</h6>
+                            ${revenue.length > 0 ? revenue.map(item => `
+                                <p><strong>Montant:</strong> ${parseFloat(item.amount).toFixed(0)} Ar</p>
+                                <p><strong>Pourcentage:</strong> ${parseFloat(item.percentage).toFixed(2)}%</p>
+                                <p><strong>Nombre de sites:</strong> ${item.site_count}</p>
+                                <p><strong>Statut paiement:</strong> <span class="badge badge-${item.status === 'paid' ? 'success' : 'warning'}">${item.status === 'paid' ? 'Payé' : 'En attente'}</span></p>
+                            `).join('') : '<p>Aucune répartition de revenu</p>'}
+                        </div>
+                    </div>
+                    ${sites && sites.length > 0 ? `
+                    <div class="mt-4">
+                        <h6>Vos sites concernés (${sites.length})</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead><tr><th>Site</th><th>Type</th><th>Ville</th><th>Actions</th></tr></thead>
+                                <tbody>
+                                    ${sites.map(site => `
+                                        <tr>
+                                            <td>${site.name}</td>
+                                            <td>${site.type || 'N/A'}</td>
+                                            <td>${site.city_name}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-info" onclick="uploadProofForSite(${campaign.id}, ${site.id})">
+                                                    <i class="fas fa-upload"></i> Preuves
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    ` : '<p class="text-muted mt-3">Aucun site associé à cette campagne</p>'}
+                `;
+            } else {
+                content = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Informations générales</h6>
+                            <p><strong>Nom:</strong> ${campaign.name}</p>
+                            <p><strong>Client:</strong> ${campaign.client_name}</p>
+                            <p><strong>Créé par:</strong> ${campaign.created_by_name || 'N/A'}</p>
+                            <p><strong>Budget total:</strong> ${parseFloat(campaign.budget).toFixed(0)} Ar</p>
+                            <p><strong>Part admin:</strong> ${parseFloat(campaign.admin_share).toFixed(0)} Ar</p>
+                            <p><strong>Part partenaires:</strong> ${parseFloat(campaign.partners_share).toFixed(0)} Ar</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Planning</h6>
+                            <p><strong>Début:</strong> ${new Date(campaign.start_date).toLocaleDateString()}</p>
+                            <p><strong>Fin:</strong> ${new Date(campaign.end_date).toLocaleDateString()}</p>
+                            <p><strong>Statut:</strong> <span class="badge badge-${getStatusBadge(campaign.status)}">${getStatusText(campaign.status)}</span></p>
+                            <p><strong>Créée le:</strong> ${new Date(campaign.created_at).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                    ${revenue && revenue.length > 0 ? `
+                    <div class="mt-4">
+                        <h6>Répartition des revenus</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead><tr><th>Partenaire</th><th>Montant</th><th>Pourcentage</th><th>Sites</th><th>Statut</th></tr></thead>
+                                <tbody>
+                                    ${revenue.map(item => `
+                                        <tr>
+                                            <td>${item.entity_name}</td>
+                                            <td>${parseFloat(item.amount).toFixed(0)} Ar</td>
+                                            <td>${parseFloat(item.percentage).toFixed(2)}%</td>
+                                            <td>${item.site_count}</td>
+                                            <td><span class="badge badge-${item.status === 'paid' ? 'success' : 'warning'}">${item.status === 'paid' ? 'Payé' : 'En attente'}</span></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    ` : ''}
+                    ${sites && sites.length > 0 ? `
+                    <div class="mt-4">
+                        <h6>Sites concernés (${sites.length})</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead><tr><th>Site</th><th>Type</th><th>Ville</th><th>Partenaire</th></tr></thead>
+                                <tbody>
+                                    ${sites.map(site => `
+                                        <tr>
+                                            <td>${site.name}</td>
+                                            <td>${site.type || 'N/A'}</td>
+                                            <td>${site.city_name}</td>
+                                            <td>${site.entity_name}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    ` : ''}
+                `;
+            }
+            
+            document.getElementById('campaignDetailContent').innerHTML = content;
+            new bootstrap.Modal(document.getElementById('campaignDetailModal')).show();
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur de chargement des détails');
+        });
+}
+
+// ===== ACTIONS SUR LE STATUT =====
+function activateCampaign(campaignId) {
+    if (confirm('Activer cette campagne ?')) {
+        fetch(`/campaigns/${campaignId}/activate`, {method: 'POST'})
+            .then(response => response.json())
+            .then(result => result.success ? (alert(result.message), window.location.reload()) : alert('Erreur: ' + result.error))
+            .catch(error => (console.error('Erreur:', error), alert('Erreur lors de l\'activation')));
+    }
+}
+
+function pauseCampaign(campaignId) {
+    if (confirm('Mettre cette campagne en pause ?')) {
+        fetch(`/campaigns/${campaignId}/pause`, {method: 'POST'})
+            .then(response => response.json())
+            .then(result => result.success ? (alert(result.message), window.location.reload()) : alert('Erreur: ' + result.error))
+            .catch(error => (console.error('Erreur:', error), alert('Erreur lors de la mise en pause')));
+    }
+}
+
+function resumeCampaign(campaignId) {
+    if (confirm('Reprendre cette campagne ?')) {
+        fetch(`/campaigns/${campaignId}/resume`, {method: 'POST'})
+            .then(response => response.json())
+            .then(result => result.success ? (alert(result.message), window.location.reload()) : alert('Erreur: ' + result.error))
+            .catch(error => (console.error('Erreur:', error), alert('Erreur lors de la reprise')));
+    }
+}
+
+function completeCampaign(campaignId) {
+    if (confirm('Marquer cette campagne comme terminée ?')) {
+        fetch(`/campaigns/${campaignId}/complete`, {method: 'POST'})
+            .then(response => response.json())
+            .then(result => result.success ? (alert(result.message), window.location.reload()) : alert('Erreur: ' + result.error))
+            .catch(error => (console.error('Erreur:', error), alert('Erreur lors de la modification du statut')));
+    }
+}
+
+function deleteCampaign(campaignId) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette campagne ? Cette action est irréversible.')) {
+        fetch(`/campaigns/${campaignId}/delete`, {method: 'POST'})
+            .then(response => response.json())
+            .then(result => result.success ? (alert(result.message), window.location.reload()) : alert('Erreur: ' + result.error))
+            .catch(error => (console.error('Erreur:', error), alert('Erreur lors de la suppression')));
+    }
+}
+
+// ===== STATISTIQUES =====
+function viewStats(campaignId) {
+    fetch(`/campaigns/${campaignId}/stats`)
+        .then(response => response.json())
+        .then(data => data.success ? showStatsModal(data) : alert('Erreur: ' + data.error))
+        .catch(error => (console.error('Erreur:', error), alert('Erreur de chargement des statistiques')));
+}
+
+function showStatsModal(data) {
+    const campaign = data.campaign;
+    const revenue = data.revenue_distribution;
+    const proofs = data.proofs;
+    const stats = data.financial_stats;
+    
+    let content = `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header"><h6 class="mb-0">Informations de la campagne</h6></div>
+                    <div class="card-body">
+                        <p><strong>Nom:</strong> ${campaign.name}</p>
+                        <p><strong>Client:</strong> ${campaign.client_name}</p>
+                        <p><strong>Budget:</strong> ${parseFloat(campaign.budget).toFixed(0)} Ar</p>
+                        <p><strong>Période:</strong> ${new Date(campaign.start_date).toLocaleDateString()} - ${new Date(campaign.end_date).toLocaleDateString()}</p>
+                        <p><strong>Statut:</strong> <span class="badge badge-${getStatusBadge(campaign.status)}">${getStatusText(campaign.status)}</span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-header"><h6 class="mb-0">Statistiques financières</h6></div>
+                    <div class="card-body">
+                        <p><strong>Total à distribuer:</strong> ${parseFloat(stats.total_amount || 0).toFixed(0)} Ar</p>
+                        <p><strong>Montant payé:</strong> <span class="text-success">${parseFloat(stats.paid_amount || 0).toFixed(0)} Ar</span></p>
+                        <p><strong>Montant en attente:</strong> <span class="text-warning">${parseFloat(stats.pending_amount || 0).toFixed(0)} Ar</span></p>
+                        <p><strong>Distributions:</strong> ${stats.paid_distributions || 0} payées / ${stats.total_distributions || 0} total</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-3">
+                    <div class="card-header"><h6 class="mb-0">Répartition des revenus</h6></div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead><tr><th>Partenaire</th><th>Montant</th><th>Pourcentage</th><th>Sites</th><th>Preuves</th><th>Statut</th><th>Action</th></tr></thead>
+                                <tbody>
+    `;
+    
+    revenue.forEach(item => {
+        content += `
+            <tr>
+                <td>${item.entity_name}</td>
+                <td>${parseFloat(item.amount).toFixed(0)} Ar</td>
+                <td>${parseFloat(item.percentage).toFixed(2)}%</td>
+                <td>${item.site_count}</td>
+                <td>${item.proof_count || 0}</td>
+                <td><span class="badge badge-${item.status === 'paid' ? 'success' : 'warning'}">${item.status === 'paid' ? 'Payé' : 'En attente'}</span></td>
+                <td>${item.status !== 'paid' ? `<button class="btn btn-sm btn-success" onclick="markAsPaid(${item.id})"><i class="fas fa-check"></i> Payer</button>` : ''}</td>
+            </tr>
+        `;
+    });
+    
+    content += `</tbody></table></div></div></div></div></div>`;
+    
+    if (proofs && proofs.length > 0) {
+        content += `
+            <div class="row"><div class="col-12">
+                <div class="card"><div class="card-header"><h6 class="mb-0">Preuves de diffusion (${proofs.length})</h6></div>
+                <div class="card-body"><div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead><tr><th>Site</th><th>Partenaire</th><th>Date upload</th><th>Statut</th></tr></thead>
+                        <tbody>
+        `;
+        
+        proofs.forEach(proof => {
+            content += `
+                <tr>
+                    <td>${proof.site_name || 'N/A'}</td>
+                    <td>${proof.partner_name || 'N/A'}</td>
+                    <td>${new Date(proof.upload_date).toLocaleDateString()}</td>
+                    <td><span class="badge badge-${proof.status === 'approved' ? 'success' : proof.status === 'rejected' ? 'danger' : 'warning'}">
+                        ${proof.status === 'approved' ? 'Approuvé' : proof.status === 'rejected' ? 'Rejeté' : 'En attente'}
+                    </span></td>
+                </tr>
+            `;
+        });
+        
+        content += `</tbody></table></div></div></div></div></div>`;
+    }
+    
+    const statsModal = document.createElement('div');
+    statsModal.className = 'modal fade';
+    statsModal.innerHTML = `
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Statistiques de la campagne - ${campaign.name}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">${content}</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                    <button type="button" class="btn btn-primary" onclick="managePayments(${campaign.id})">
+                        <i class="fas fa-money-bill-wave me-2"></i>Gérer les paiements
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(statsModal);
+    const modal = new bootstrap.Modal(statsModal);
+    modal.show();
+    
+    statsModal.addEventListener('hidden.bs.modal', function () {
+        document.body.removeChild(statsModal);
+    });
+}
+
+// ===== GESTION DES PREUVES (PARTENAIRES) =====
+function uploadProof(campaignId) {
+    document.getElementById('proof_campaign_id').value = campaignId;
+    
+    fetch(`/campaigns/api/${campaignId}/partner-sites`)
+        .then(response => response.json())
+        .then(sites => {
+            const select = document.getElementById('proof_site_id');
+            select.innerHTML = '<option value="">Sélectionner un site</option>';
+            
+            if (sites.error) {
+                alert(sites.error);
+                return;
+            }
+            
+            sites.forEach(site => {
+                const option = document.createElement('option');
+                option.value = site.id;
+                option.textContent = `${site.name} - ${site.city_name}`;
+                select.appendChild(option);
+            });
+            
+            new bootstrap.Modal(document.getElementById('uploadProofModal')).show();
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur de chargement des sites');
+        });
+}
+
+function uploadProofForSite(campaignId, siteId) {
+    document.getElementById('proof_campaign_id').value = campaignId;
+    document.getElementById('proof_site_id').value = siteId;
+    new bootstrap.Modal(document.getElementById('uploadProofModal')).show();
+}
+
+function submitProof() {
+    const form = document.getElementById('uploadProofForm');
+    const formData = new FormData(form);
+    const campaignId = document.getElementById('proof_campaign_id').value;
+    
+    const fileInput = document.querySelector('input[name="proof_images"]');
+    for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append('proof_images', fileInput.files[i]);
+    }
+    
+    fetch(`/campaigns/api/${campaignId}/upload-proof`, {method: 'POST', body: formData})
+        .then(response => response.json())
+        .then(result => result.success ? (alert('Preuves uploadées avec succès'), bootstrap.Modal.getInstance(document.getElementById('uploadProofModal')).hide()) : alert('Erreur: ' + result.error))
+        .catch(error => (console.error('Erreur:', error), alert('Erreur lors de l\'upload')));
+}
+
+// ===== GESTION DES PAIEMENTS =====
+function markAsPaid(revenueId) {
+    fetch(`/campaigns/revenue/${revenueId}/mark-paid`, {method: 'POST'})
+        .then(response => response.json())
+        .then(result => result.success ? alert('Paiement marqué comme effectué') : alert('Erreur: ' + result.error))
+        .catch(error => (console.error('Erreur:', error), alert('Erreur lors de la mise à jour du paiement')));
+}
+
+function markAllAsPaid(campaignId) {
+    if (confirm('Marquer tous les paiements de cette campagne comme effectués ?')) {
+        fetch(`/campaigns/${campaignId}/mark-all-paid`, {method: 'POST'})
+            .then(response => response.json())
+            .then(result => result.success ? (alert(result.message), window.location.reload()) : alert('Erreur: ' + result.error))
+            .catch(error => (console.error('Erreur:', error), alert('Erreur lors de la mise à jour des paiements')));
+    }
+}
+
+function managePayments(campaignId) {
+    fetch(`/campaigns/${campaignId}/payment-info`)
+        .then(response => response.json())
+        .then(data => data.success ? showPaymentManagementModal(data) : alert('Erreur: ' + data.error))
+        .catch(error => (console.error('Erreur:', error), alert('Erreur de chargement des informations de paiement')));
+}
+
+function showPaymentManagementModal(data) {
+    const campaign = data.campaign;
+    const revenue = data.revenue_distribution;
+    
+    document.getElementById('paymentCampaignName').textContent = campaign.name;
+    
+    let content = `
+        <div class="alert alert-info">
+            <strong>Budget total:</strong> ${parseFloat(campaign.budget).toFixed(0)} Ar<br>
+            <strong>Statut campagne:</strong> <span class="badge badge-${getStatusBadge(campaign.status)}">${getStatusText(campaign.status)}</span>
+        </div>
+        <h6>Gestion des paiements aux partenaires</h6>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead><tr><th>Partenaire</th><th>Montant dû</th><th>Statut</th><th>Actions</th></tr></thead>
+                <tbody>
+    `;
+    
+    revenue.forEach(item => {
+        content += `
+            <tr>
+                <td>${item.entity_name}</td>
+                <td>${parseFloat(item.amount).toFixed(0)} Ar</td>
+                <td><span class="badge badge-${item.status === 'paid' ? 'success' : 'warning'}">${item.status === 'paid' ? 'Payé' : 'En attente'}</span></td>
+                <td>${item.status !== 'paid' ? 
+                    `<button class="btn btn-sm btn-success" onclick="markAsPaid(${item.id})"><i class="fas fa-check"></i> Marquer payé</button>` : 
+                    `<span class="text-muted">Déjà payé</span>`}
+                </td>
+            </tr>
+        `;
+    });
+    
+    content += `
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-3">
+            <button class="btn btn-success" onclick="markAllAsPaid(${campaign.id})">
+                <i class="fas fa-check-double me-2"></i>Tout marquer comme payé
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('paymentManagementContent').innerHTML = content;
+    new bootstrap.Modal(document.getElementById('paymentManagementModal')).show();
+}
+
+function redirectToFinance() {
+    window.location.href = '/finance/invoices';
+}
+
+
+function viewProof(proofId, campaignName) {
+    document.getElementById('proofCampaignName').textContent = campaignName;
+
+    fetch(`/campaigns/proofs/${proofId}`)
+        .then(response => response.json())
+        .then(proof => {
+            // Aperçu du média
+            let preview = "";
+            if (proof.mime_type.startsWith("image/")) {
+                preview = `<img src="${proof.url}" class="img-fluid rounded shadow">`;
+            } else if (proof.mime_type.startsWith("video/")) {
+                preview = `
+                  <video controls class="w-100 rounded shadow">
+                      <source src="${proof.url}" type="${proof.mime_type}">
+                      Votre navigateur ne supporte pas la lecture vidéo.
+                  </video>`;
+            } else {
+                preview = `<a href="${proof.url}" target="_blank" class="btn btn-primary">
+                             Télécharger le fichier
+                           </a>`;
+            }
+            document.getElementById("proofMediaPreview").innerHTML = preview;
+
+            // Détails du fichier
+            let details = `
+              <ul class="list-group">
+                <li class="list-group-item"><strong>Nom :</strong> ${proof.filename}</li>
+                <li class="list-group-item"><strong>Taille :</strong> ${(proof.size/1024).toFixed(2)} KB</li>
+                <li class="list-group-item"><strong>Type :</strong> ${proof.mime_type}</li>
+                <li class="list-group-item"><strong>Résolution :</strong> ${proof.width || '-'} x ${proof.height || '-'}</li>
+                ${proof.duration ? `<li class="list-group-item"><strong>Durée :</strong> ${proof.duration} sec</li>` : ''}
+                <li class="list-group-item"><strong>Uploader :</strong> ${proof.uploaded_by_name}</li>
+                <li class="list-group-item"><strong>Date upload :</strong> ${new Date(proof.upload_date).toLocaleString()}</li>
+              </ul>`;
+            document.getElementById("proofFileDetails").innerHTML = details;
+
+            // Associer actions
+            document.getElementById("approveBtn").onclick = () => validateProof(proof.id, "approved");
+            document.getElementById("rejectBtn").onclick = () => validateProof(proof.id, "rejected");
+
+            // Afficher le modal
+            new bootstrap.Modal(document.getElementById('proofViewerModal')).show();
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Impossible de charger la preuve");
+        });
+}
+
+
+function validateProof(proofId, status) {
+    fetch(`/campaigns/proofs/${proofId}/validate`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status: status})
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert(`Preuve ${status === 'approved' ? 'validée' : 'rejetée'} avec succès`);
+            document.querySelector('#proofViewerModal .btn-close').click(); 
+        } else {
+            alert('Erreur: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert("Erreur lors de la validation");
+    });
+}
+
+
+// ===== FONCTIONS D'INITIALISATION =====
+function loadClients() {
+    fetch('/campaigns/api/clients')
+        .then(response => response.json())
+        .then(clients => {
+            const select = document.getElementById('client_select');
+            select.innerHTML = '<option value="">Sélectionner un client</option>';
+            clients.forEach(client => {
+                const option = document.createElement('option');
+                option.value = client.id;
+                option.textContent = client.name;
+                select.appendChild(option);
+            });
+        })
+        .catch(error => console.error('Erreur chargement clients:', error));
+}
+
+// ===== INITIALISATION =====
+document.addEventListener('DOMContentLoaded', function() {
+    calculateShares();
+    loadClients();
+});
+</script>
+
+{% endblock %}

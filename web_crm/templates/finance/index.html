@@ -1,0 +1,1571 @@
+{% extends "base.html" %}
+
+{% block title %}Finance - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="page-title">Gestion Financière</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item active">Finance</li>
+            </ol>
+        </nav>
+    </div>
+    <div>
+        <div class="btn-group">
+            <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="fas fa-plus me-2"></i>Nouveau
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" onclick="showQuoteModal()">Devis</a></li>
+                <li><a class="dropdown-item" href="#" onclick="showInvoiceModal()">Facture</a></li>
+                <li><a class="dropdown-item" href="#" onclick="showPaymentModal()">Paiement</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="fas fa-euro-sign"></i>
+            </div>
+            <div class="stat-value">{{ "%.0f"|format(stats.revenue_month) }}Ar</div>
+            <div class="stat-label">Revenus du mois</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-value">{{ "%.0f"|format(stats.pending_invoices) }}Ar</div>
+            <div class="stat-label">Factures en attente</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i class="fas fa-file-invoice"></i>
+            </div>
+            <div class="stat-value">{{ stats.quotes_pending }}</div>
+            <div class="stat-label">Devis en cours</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon danger">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="stat-value">{{ stats.overdue_invoices }}</div>
+            <div class="stat-label">Factures en retard</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link active" data-bs-toggle="tab" href="#invoices">Factures</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#quotes">Devis</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#payments">Paiements</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#reports">Rapports</a>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content">
+    <!-- Invoices Tab -->
+    <div class="tab-pane fade show active" id="invoices">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Factures récentes</h5>
+                    <button class="btn btn-sm btn-light" onclick="exportInvoices()">
+                        <i class="fas fa-download me-2"></i>Exporter
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>N° Facture</th>
+                                <th>Client</th>
+                                <th>Date</th>
+                                <th>Échéance</th>
+                                <th>Montant</th>
+                                <th>Payé</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                       <tbody>
+                            {% for invoice in recent_invoices %}
+                            <tr onclick="viewInvoice({{ invoice.id }})" style="cursor: pointer;">
+                                <td>
+                                    <strong>{{ invoice.invoice_number }}</strong>
+                                </td>
+                                <td>{{ invoice.client_name }}</td>
+                                <td>{{ invoice.created_at.strftime('%d/%m/%Y') if invoice.created_at else '' }}</td>
+                                <td>{{ invoice.due_date.strftime('%d/%m/%Y') if invoice.due_date else '' }}</td>
+
+                                <td><strong>{{ "%.2f"|format(invoice.total_amount) }}Ar</strong></td>
+                                <td>{{ "%.2f"|format(invoice.paid_amount) }}Ar</td>
+                                <td>
+                                    {% if invoice.status == 'paid' %}
+                                        <span class="badge badge-success">Payée</span>
+                                    {% elif invoice.status == 'sent' %}
+                                        <span class="badge badge-warning">Envoyée</span>
+                                    {% elif invoice.status == 'overdue' %}
+                                        <span class="badge badge-danger">En retard</span>
+                                    {% else %}
+                                        <span class="badge badge-secondary">Brouillon</span>
+                                    {% endif %}
+                                </td>
+                                <td onclick="event.stopPropagation();">
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-light" onclick="sendInvoice({{ invoice.id }})" title="Envoyer">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                        <button class="btn btn-light" onclick="recordPayment({{ invoice.id }})" title="Paiement">
+                                            <i class="fas fa-euro-sign"></i>
+                                        </button>
+                                        <button class="btn btn-light" onclick="printInvoice({{ invoice.id }})" title="Imprimer">
+                                            <i class="fas fa-print"></i>
+                                        </button>
+                                        <button class="btn btn-light text-danger" onclick="deleteInvoice({{ invoice.id }})" title="Supprimer">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quotes Tab -->
+    <div class="tab-pane fade" id="quotes">
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>N° Devis</th>
+                                <th>Client</th>
+                                <th>Date</th>
+                                <th>Validité</th>
+                                <th>Montant</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for quote in quotes_list %}
+                            <tr>
+                                <td><strong>{{ quote.quote_number }}</strong></td>
+                                <td>{{ quote.client_name }}</td>
+                                <td>{{ quote.created_at.strftime('%d/%m/%Y') if quote.created_at else '' }}</td>
+                                <td>{{ quote.validity_date.strftime('%d/%m/%Y') if quote.validity_date else '' }}</td>
+
+                                <td><strong>{{ "%.2f"|format(quote.amount) }}Ar</strong></td>
+                                <td>
+                                    {% if quote.status == 'accepted' %}
+                                        <span class="badge badge-success">Accepté</span>
+                                    {% elif quote.status == 'sent' %}
+                                        <span class="badge badge-warning">Envoyé</span>
+                                    {% elif quote.status == 'rejected' %}
+                                        <span class="badge badge-danger">Refusé</span>
+                                    {% else %}
+                                        <span class="badge badge-secondary">Brouillon</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-light" onclick="convertToInvoice({{ quote.id }})" title="Convertir en facture">
+                                            <i class="fas fa-file-invoice"></i>
+                                        </button>
+                                        <button class="btn btn-light" onclick="editQuote({{ quote.id }})" title="Modifier">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-light" onclick="sendQuote({{ quote.id }})" title="Envoyer">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payments Tab -->
+    <div class="tab-pane fade" id="payments">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Historique des paiements</h5>
+                    <button class="btn btn-sm btn-light" onclick="exportPayments()">
+                        <i class="fas fa-download me-2"></i>Exporter
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>N° Facture</th>
+                                <th>Client</th>
+                                <th>Montant</th>
+                                <th>Mode de paiement</th>
+                                <th>Référence</th>
+                                <th>Notes</th>
+                                <th>Enregistré par</th>
+                            </tr>
+                        </thead>
+                        <tbody id="payments-list">
+                            <!-- Les paiements seront chargés dynamiquement -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Graphique des paiements mensuels -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">Évolution des paiements</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="paymentsChart" height="80"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reports Tab -->
+    <div class="tab-pane fade" id="reports">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Rapport mensuel</h6>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-primary w-100 mb-2" onclick="generateMonthlyReport()">
+                            <i class="fas fa-file-pdf me-2"></i>Générer rapport mensuel
+                        </button>
+                        <button class="btn btn-success w-100 mb-2" onclick="generateQuarterlyReport()">
+                            <i class="fas fa-file-excel me-2"></i>Rapport trimestriel
+                        </button>
+                        <button class="btn btn-info w-100" onclick="generateAnnualReport()">
+                            <i class="fas fa-chart-line me-2"></i>Bilan annuel
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Export comptable</h6>
+                    </div>
+                    <div class="card-body">
+                        <form id="exportForm">
+                            <div class="mb-3">
+                                <label class="form-label">Période</label>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <input type="date" class="form-control" name="start_date">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="date" class="form-control" name="end_date">
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-primary w-100" onclick="exportAccounting()">
+                                <i class="fas fa-download me-2"></i>Exporter
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Invoice Modal -->
+<div class="modal fade" id="invoiceModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouvelle facture</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="invoiceForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Client *</label>
+                            <select class="form-select" name="client_id" required onchange="loadClientInfo()">
+                                <option value="">Sélectionner un client</option>
+                                {% for client in clients %}
+                                <option value="{{ client.id }}">{{ client.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Date facture *</label>
+                            <input type="date" class="form-control" name="invoice_date" value="{{ today }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Date échéance *</label>
+                            <input type="date" class="form-control" name="due_date" required>
+                        </div>
+                        
+                        <!-- Lignes de facture -->
+                        <div class="col-12">
+                            <h6 class="text-primary">Lignes de facture</h6>
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th width="40%">Description</th>
+                                        <th width="15%">Quantité</th>
+                                        <th width="15%">Prix unitaire</th>
+                                        <th width="10%">TVA %</th>
+                                        <th width="15%">Total HT</th>
+                                        <th width="5%"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="invoice-lines">
+                                    <tr>
+                                        <td><input type="text" class="form-control form-control-sm" name="description[]" required></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="quantity[]" value="1" min="1" onchange="calculateLine(this)" required></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="unit_price[]" step="0.01" onchange="calculateLine(this)" required></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="tax_rate[]" value="20" min="0" max="100" onchange="calculateLine(this)"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="line_total[]" readonly></td>
+                                        <td><button type="button" class="btn btn-sm btn-danger" onclick="removeLine(this)"><i class="fas fa-times"></i></button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <button type="button" class="btn btn-sm btn-success" onclick="addInvoiceLine()">
+                                <i class="fas fa-plus me-2"></i>Ajouter une ligne
+                            </button>
+                        </div>
+                        
+                        <!-- Totaux -->
+                        <div class="col-12">
+                            <div class="row justify-content-end">
+                                <div class="col-md-4">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <td>Total HT:</td>
+                                            <td class="text-end"><strong id="subtotal">0.00</strong>Ar</td>
+                                        </tr>
+                                        <tr>
+                                            <td>TVA:</td>
+                                            <td class="text-end"><strong id="tax_amount">0.00</strong>Ar</td>
+                                        </tr>
+                                        <tr class="table-primary">
+                                            <td><strong>Total TTC:</strong></td>
+                                            <td class="text-end"><strong id="total_amount">0.00</strong>Ar</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Conditions de paiement</label>
+                            <textarea class="form-control" name="payment_terms" rows="2">Paiement à 30 jours date de facture</textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveInvoice()">
+                    <i class="fas fa-save me-2"></i>Créer la facture
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quote Modal -->
+<div class="modal fade" id="quoteModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouveau devis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quoteForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Client *</label>
+                            <select class="form-select" name="client_id" required>
+                                <option value="">Sélectionner un client</option>
+                                {% for client in clients %}
+                                <option value="{{ client.id }}">{{ client.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Date devis *</label>
+                            <input type="date" class="form-control" name="quote_date" value="{{ today }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Validité jusqu'au *</label>
+                            <input type="date" class="form-control" name="validity_date" required>
+                        </div>
+                        
+                        <!-- Lignes de devis -->
+                        <div class="col-12">
+                            <h6 class="text-primary">Détail du devis</h6>
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th width="40%">Description</th>
+                                        <th width="15%">Quantité</th>
+                                        <th width="15%">Prix unitaire</th>
+                                        <th width="10%">TVA %</th>
+                                        <th width="15%">Total HT</th>
+                                        <th width="5%"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="quote-lines">
+                                    <tr>
+                                        <td><input type="text" class="form-control form-control-sm" name="description[]" required></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="quantity[]" value="1" min="1" onchange="calculateQuoteLine(this)" required></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="unit_price[]" step="0.01" onchange="calculateQuoteLine(this)" required></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="tax_rate[]" value="20" min="0" max="100" onchange="calculateQuoteLine(this)"></td>
+                                        <td><input type="number" class="form-control form-control-sm" name="line_total[]" readonly></td>
+                                        <td><button type="button" class="btn btn-sm btn-danger" onclick="removeQuoteLine(this)"><i class="fas fa-times"></i></button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <button type="button" class="btn btn-sm btn-success" onclick="addQuoteLine()">
+                                <i class="fas fa-plus me-2"></i>Ajouter une ligne
+                            </button>
+                        </div>
+                        
+                        <!-- Totaux -->
+                        <div class="col-12">
+                            <div class="row justify-content-end">
+                                <div class="col-md-4">
+                                    <table class="table table-sm">
+                                        <tr>
+                                            <td>Total HT:</td>
+                                            <td class="text-end"><strong id="quote-subtotal">0.00</strong>Ar</td>
+                                        </tr>
+                                        <tr>
+                                            <td>TVA:</td>
+                                            <td class="text-end"><strong id="quote-tax-amount">0.00</strong>Ar</td>
+                                        </tr>
+                                        <tr class="table-primary">
+                                            <td><strong>Total TTC:</strong></td>
+                                            <td class="text-end"><strong id="quote-total-amount">0.00</strong>Ar</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Conditions commerciales</label>
+                            <textarea class="form-control" name="terms" rows="3"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveQuote()">
+                    <i class="fas fa-save me-2"></i>Créer le devis
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Enregistrer un paiement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="paymentForm">
+                    <input type="hidden" name="invoice_id" id="payment_invoice_id">
+                    <div class="mb-3">
+                        <label class="form-label">Facture</label>
+                        <select class="form-select" name="invoice_select" onchange="loadInvoiceBalance()">
+                            <option value="">Sélectionner une facture</option>
+                            {% for invoice in unpaid_invoices %}
+                            <option value="{{ invoice.id }}" data-balance="{{ invoice.balance }}">
+                                {{ invoice.invoice_number }} - {{ invoice.client_name }} - Reste: {{ invoice.balance }}Ar
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Montant payé *</label>
+                        <input type="number" class="form-control" name="amount" step="0.01" required>
+                        <small class="text-muted">Solde restant: <span id="invoice_balance">0.00</span>Ar</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date de paiement *</label>
+                        <input type="date" class="form-control" name="payment_date" value="{{ today }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mode de paiement *</label>
+                        <select class="form-select" name="payment_method" required>
+                            <option value="">Sélectionner</option>
+                            <option value="Virement">Virement bancaire</option>
+                            <option value="Chèque">Chèque</option>
+                            <option value="Espèces">Espèces</option>
+                            <option value="CB">Carte bancaire</option>
+                            <option value="PayPal">PayPal</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Référence</label>
+                        <input type="text" class="form-control" name="reference" placeholder="N° de transaction">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-success" onclick="savePayment()">
+                    <i class="fas fa-check me-2"></i>Enregistrer le paiement
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Invoice Modal -->
+<div class="modal fade" id="sendInvoiceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Envoyer la facture</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sendInvoiceForm">
+                    <input type="hidden" id="send_invoice_id" name="invoice_id">
+                    <div class="mb-3">
+                        <label class="form-label">Destinataire *</label>
+                        <select class="form-select" id="invoice_recipient_select">
+                            <option value="">Sélectionner un client</option>
+                            <!-- Les options seront chargées dynamiquement -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email du destinataire *</label>
+                        <input type="email" class="form-control" id="invoice_recipient" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sujet</label>
+                        <input type="text" class="form-control" id="invoice_subject" value="Votre facture" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Message</label>
+                        <textarea class="form-control" id="invoice_message" rows="4" required>Veuillez trouver ci-joint votre facture.</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="confirmSendInvoice()">
+                    <i class="fas fa-paper-plane me-2"></i>Envoyer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Quote Modal -->
+<div class="modal fade" id="sendQuoteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Envoyer le devis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sendQuoteForm">
+                    <input type="hidden" id="send_quote_id" name="quote_id">
+                    <div class="mb-3">
+                        <label class="form-label">Destinataire *</label>
+                        <select class="form-select" id="quote_recipient" required>
+                            <option value="">Sélectionner un client</option>
+                            <!-- Les options seront chargées dynamiquement -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email du destinataire *</label>
+                        <input type="email" class="form-control" id="quote_email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sujet *</label>
+                        <input type="text" class="form-control" id="quote_subject" value="Votre devis" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Message *</label>
+                        <textarea class="form-control" id="quote_message" rows="4" required>Veuillez trouver ci-joint notre devis.</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="confirmSendQuote()">
+                    <i class="fas fa-paper-plane me-2"></i>Envoyer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmation de suppression</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer cet élément ? Cette action est irréversible.</p>
+                <input type="hidden" id="delete_item_id">
+                <input type="hidden" id="delete_item_type">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                    <i class="fas fa-trash me-2"></i>Supprimer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Convert Quote to Invoice Modal -->
+<div class="modal fade" id="convertQuoteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Convertir le devis en facture</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="convertQuoteForm">
+                    <input type="hidden" id="convert_quote_id" name="quote_id">
+                    <div class="mb-3">
+                        <label class="form-label">Date de facturation</label>
+                        <input type="date" class="form-control" name="invoice_date" value="{{ today }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date d'échéance</label>
+                        <input type="date" class="form-control" name="due_date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Conditions de paiement</label>
+                        <textarea class="form-control" name="payment_terms" rows="2">Paiement à 30 jours date de facture</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="confirmConvertQuote()">
+                    <i class="fas fa-file-invoice me-2"></i>Convertir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Fonctions pour afficher les modals
+function showQuoteModal() {
+    $('#quoteModal').modal('show');
+}
+
+function showInvoiceModal() {
+    $('#invoiceModal').modal('show');
+}
+
+function showPaymentModal() {
+    $('#paymentModal').modal('show');
+}
+
+function sendInvoice(invoiceId) {
+    $('#send_invoice_id').val(invoiceId);
+    
+    // Charger les clients
+    loadClientsForInvoice();
+    
+    // Réinitialiser les champs
+    $('#invoice_recipient_select').val('');
+    $('#invoice_recipient').val('');
+    $('#invoice_subject').val('Votre facture');
+    $('#invoice_message').val('Veuillez trouver ci-joint votre facture.');
+    
+    $('#sendInvoiceModal').modal('show');
+}
+
+// Fonction pour charger les clients pour les factures
+function loadClientsForInvoice() {
+    fetch('/finance/clients/emails')
+    .then(response => response.json())
+    .then(clients => {
+        const select = $('#invoice_recipient_select');
+        select.empty();
+        select.append('<option value="">Sélectionner un client</option>');
+        
+        clients.forEach(client => {
+            if (client.email) {
+                const displayText = `${client.name} - ${client.email}${client.phone ? ' (' + client.phone + ')' : ''}`;
+                select.append(`<option value="${client.id}" data-email="${client.email}">${displayText}</option>`);
+            }
+        });
+    })
+    .catch(error => {
+        console.error('Erreur lors du chargement des clients:', error);
+    });
+}
+
+// Fonction pour gérer la sélection du client (factures)
+function setupInvoiceClientSelection() {
+    $('#invoice_recipient_select').on('change', function() {
+        const selectedOption = $(this).find('option:selected');
+        const email = selectedOption.data('email');
+        if (email) {
+            $('#invoice_recipient').val(email);
+        } else {
+            $('#invoice_recipient').val('');
+        }
+    });
+    
+    // Permettre la saisie manuelle d'un email
+    $('#invoice_recipient').on('input', function() {
+        const manualEmail = $(this).val();
+        if (manualEmail && !$(this).data('fromSelect')) {
+            $('#invoice_recipient_select').val('');
+        }
+        $(this).data('fromSelect', false);
+    });
+    
+    // Marquer quand l'email vient de la sélection
+    $('#invoice_recipient_select').on('change', function() {
+        $('#invoice_recipient').data('fromSelect', true);
+    });
+}
+
+function sendQuote(quoteId) {
+    $('#send_quote_id').val(quoteId);
+    
+    // Charger les clients et ouvrir le modal une fois chargé
+    loadClients();
+    
+    // Réinitialiser les champs
+    $('#quote_recipient').val('');
+    $('#quote_email').val('');
+    $('#quote_subject').val('Votre devis');
+    $('#quote_message').val('Veuillez trouver ci-joint notre devis.');
+    
+    $('#sendQuoteModal').modal('show');
+}
+
+function deleteInvoice(invoiceId) {
+    $('#delete_item_id').val(invoiceId);
+    $('#delete_item_type').val('invoice');
+    $('#deleteConfirmationModal').modal('show');
+}
+
+function convertToInvoice(quoteId) {
+    $('#convert_quote_id').val(quoteId);
+    $('#convertQuoteModal').modal('show');
+}
+
+function recordPayment(invoiceId) {
+    $('#payment_invoice_id').val(invoiceId);
+    // Pré-remplir la sélection de facture
+    $('select[name="invoice_select"]').val(invoiceId).trigger('change');
+    $('#paymentModal').modal('show');
+}
+
+// Fonctions de confirmation
+function confirmSendInvoice() {
+    const invoiceId = $('#send_invoice_id').val();
+    const recipientId = $('#invoice_recipient_select').val();
+    const email = $('#invoice_recipient').val();
+    
+    if (!email) {
+        showNotification('error', 'Veuillez saisir une adresse email');
+        return;
+    }
+    
+    const data = {
+        recipient_id: recipientId,
+        recipient: email,
+        subject: $('#invoice_subject').val(),
+        message: $('#invoice_message').val()
+    };
+    
+    fetch(`/finance/invoices/${invoiceId}/send`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showNotification('success', result.message);
+            $('#sendInvoiceModal').modal('hide');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification('error', result.error);
+        }
+    })
+    .catch(error => {
+        showNotification('error', 'Erreur lors de l\'envoi de la facture');
+        console.error('Error:', error);
+    });
+}
+
+function confirmSendQuote() {
+    const quoteId = $('#send_quote_id').val();
+    const recipientId = $('#quote_recipient').val();
+    const email = $('#quote_email').val();
+    const subject = $('#quote_subject').val();
+    const message = $('#quote_message').val();
+    
+    if (!email) {
+        showNotification('error', 'Veuillez saisir une adresse email');
+        return;
+    }
+    
+    const data = {
+        recipient_id: recipientId,
+        recipient_email: email,
+        subject: subject,
+        message: message
+    };
+    
+    fetch(`/finance/quotes/${quoteId}/send`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showNotification('success', result.message);
+            $('#sendQuoteModal').modal('hide');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification('error', result.error);
+        }
+    })
+    .catch(error => {
+        showNotification('error', 'Erreur lors de l\'envoi du devis');
+        console.error('Error:', error);
+    });
+}
+
+function confirmConvertQuote() {
+    const quoteId = $('#convert_quote_id').val();
+    const formData = new FormData(document.getElementById('convertQuoteForm'));
+    
+    const data = {
+        invoice_date: formData.get('invoice_date'),
+        due_date: formData.get('due_date'),
+        payment_terms: formData.get('payment_terms')
+    };
+    
+    fetch(`/finance/quotes/${quoteId}/convert`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showNotification('success', result.message);
+            $('#convertQuoteModal').modal('hide');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification('error', result.error);
+        }
+    })
+    .catch(error => {
+        showNotification('error', 'Erreur lors de la conversion du devis');
+        console.error('Error:', error);
+    });
+}
+
+function confirmDelete() {
+    const itemId = $('#delete_item_id').val();
+    const itemType = $('#delete_item_type').val();
+    
+    fetch(`/finance/${itemType}s/${itemId}/delete`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showNotification('success', result.message);
+            $('#deleteConfirmationModal').modal('hide');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification('error', result.error);
+        }
+    })
+    .catch(error => {
+        showNotification('error', 'Erreur lors de la suppression');
+        console.error('Error:', error);
+    });
+}
+
+// Fonctions utilitaires pour les calculs
+function calculateLine(element) {
+    // Implémentation du calcul des lignes
+    const row = $(element).closest('tr');
+    const quantity = parseFloat(row.find('input[name="quantity[]"]').val()) || 0;
+    const unitPrice = parseFloat(row.find('input[name="unit_price[]"]').val()) || 0;
+    const taxRate = parseFloat(row.find('input[name="tax_rate[]"]').val()) || 0;
+    
+    const totalHT = quantity * unitPrice;
+    row.find('input[name="line_total[]"]').val(totalHT.toFixed(2));
+    
+    // Recalculer les totaux
+    calculateTotals();
+}
+
+function calculateTotals() {
+    // Calculer les totaux pour les factures
+    let subtotal = 0;
+    $('#invoice-lines tr').each(function() {
+        subtotal += parseFloat($(this).find('input[name="line_total[]"]').val()) || 0;
+    });
+    
+    $('#subtotal').text(subtotal.toFixed(2));
+    
+    // Calculer la TVA (simplifié)
+    const taxRate = 20; // Par défaut
+    const taxAmount = subtotal * (taxRate / 100);
+    $('#tax_amount').text(taxAmount.toFixed(2));
+    
+    const totalAmount = subtotal + taxAmount;
+    $('#total_amount').text(totalAmount.toFixed(2));
+}
+
+function addInvoiceLine() {
+    const newLine = `
+        <tr>
+            <td><input type="text" class="form-control form-control-sm" name="description[]" required></td>
+            <td><input type="number" class="form-control form-control-sm" name="quantity[]" value="1" min="1" onchange="calculateLine(this)" required></td>
+            <td><input type="number" class="form-control form-control-sm" name="unit_price[]" step="0.01" onchange="calculateLine(this)" required></td>
+            <td><input type="number" class="form-control form-control-sm" name="tax_rate[]" value="20" min="0" max="100" onchange="calculateLine(this)"></td>
+            <td><input type="number" class="form-control form-control-sm" name="line_total[]" readonly></td>
+            <td><button type="button" class="btn btn-sm btn-danger" onclick="removeLine(this)"><i class="fas fa-times"></i></button></td>
+        </tr>
+    `;
+    $('#invoice-lines').append(newLine);
+}
+
+function removeLine(button) {
+    $(button).closest('tr').remove();
+    calculateTotals();
+}
+
+// Fonctions similaires pour les devis
+function calculateQuoteLine(element) {
+    // Implémentation similaire à calculateLine mais pour les devis
+    const row = $(element).closest('tr');
+    const quantity = parseFloat(row.find('input[name="quantity[]"]').val()) || 0;
+    const unitPrice = parseFloat(row.find('input[name="unit_price[]"]').val()) || 0;
+    const taxRate = parseFloat(row.find('input[name="tax_rate[]"]').val()) || 0;
+    
+    const totalHT = quantity * unitPrice;
+    row.find('input[name="line_total[]"]').val(totalHT.toFixed(2));
+    
+    // Recalculer les totaux
+    calculateQuoteTotals();
+}
+
+function calculateQuoteTotals() {
+    // Calculer les totaux pour les devis
+    let subtotal = 0;
+    $('#quote-lines tr').each(function() {
+        subtotal += parseFloat($(this).find('input[name="line_total[]"]').val()) || 0;
+    });
+    
+    $('#quote-subtotal').text(subtotal.toFixed(2));
+    
+    // Calculer la TVA (simplifié)
+    const taxRate = 20; // Par défaut
+    const taxAmount = subtotal * (taxRate / 100);
+    $('#quote-tax-amount').text(taxAmount.toFixed(2));
+    
+    const totalAmount = subtotal + taxAmount;
+    $('#quote-total-amount').text(totalAmount.toFixed(2));
+}
+
+function addQuoteLine() {
+    const newLine = `
+        <tr>
+            <td><input type="text" class="form-control form-control-sm" name="description[]" required></td>
+            <td><input type="number" class="form-control form-control-sm" name="quantity[]" value="1" min="1" onchange="calculateQuoteLine(this)" required></td>
+            <td><input type="number" class="form-control form-control-sm" name="unit_price[]" step="0.01" onchange="calculateQuoteLine(this)" required></td>
+            <td><input type="number" class="form-control form-control-sm" name="tax_rate[]" value="20" min="0" max="100" onchange="calculateQuoteLine(this)"></td>
+            <td><input type="number" class="form-control form-control-sm" name="line_total[]" readonly></td>
+            <td><button type="button" class="btn btn-sm btn-danger" onclick="removeQuoteLine(this)"><i class="fas fa-times"></i></button></td>
+        </tr>
+    `;
+    $('#quote-lines').append(newLine);
+}
+
+function removeQuoteLine(button) {
+    $(button).closest('tr').remove();
+    calculateQuoteTotals();
+}
+
+// Fonction pour charger le solde de la facture
+function loadInvoiceBalance() {
+    const selectedOption = $('select[name="invoice_select"] option:selected');
+    const balance = parseFloat(selectedOption.data('balance')) || 0;
+    $('#invoice_balance').text(balance.toFixed(2));
+    $('input[name="amount"]').attr('max', balance);
+    $('input[name="amount"]').val(balance); // Pré-remplir avec le solde
+}
+// Fonctions de sauvegarde (à implémenter avec AJAX)
+function saveInvoice() {
+    const formData = new FormData(document.getElementById('invoiceForm'));
+    const items = [];
+    
+    // Récupérer les lignes de facture
+    $('#invoice-lines tr').each(function() {
+        const description = $(this).find('input[name="description[]"]').val();
+        const quantity = parseFloat($(this).find('input[name="quantity[]"]').val()) || 0;
+        const unitPrice = parseFloat($(this).find('input[name="unit_price[]"]').val()) || 0;
+        const taxRate = parseFloat($(this).find('input[name="tax_rate[]"]').val()) || 20;
+        
+        if (description && quantity > 0 && unitPrice > 0) {
+            items.push({
+                description: description,
+                quantity: quantity,
+                unit_price: unitPrice,
+                tax_rate: taxRate
+            });
+        }
+    });
+    
+    if (items.length === 0) {
+        showNotification('error', 'Veuillez ajouter au moins une ligne de facture');
+        return;
+    }
+    
+    const data = {
+        client_id: formData.get('client_id'),
+        invoice_date: formData.get('invoice_date'),
+        due_date: formData.get('due_date'),
+        items: items,
+        payment_terms: formData.get('payment_terms'),
+        tax_rate: 20 // TVA par défaut
+    };
+    
+    fetch('/finance/invoices/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showNotification('success', result.message);
+            $('#invoiceModal').modal('hide');
+            // Recharger la page après un délai
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification('error', result.error);
+        }
+    })
+    .catch(error => {
+        showNotification('error', 'Erreur lors de la création de la facture');
+        console.error('Error:', error);
+    });
+}
+
+function saveQuote() {
+    const formData = new FormData(document.getElementById('quoteForm'));
+    const items = [];
+    
+    // Récupérer les lignes de devis
+    $('#quote-lines tr').each(function() {
+        const description = $(this).find('input[name="description[]"]').val();
+        const quantity = parseFloat($(this).find('input[name="quantity[]"]').val()) || 0;
+        const unitPrice = parseFloat($(this).find('input[name="unit_price[]"]').val()) || 0;
+        const taxRate = parseFloat($(this).find('input[name="tax_rate[]"]').val()) || 20;
+        
+        if (description && quantity > 0 && unitPrice > 0) {
+            items.push({
+                description: description,
+                quantity: quantity,
+                unit_price: unitPrice,
+                tax_rate: taxRate
+            });
+        }
+    });
+    
+    if (items.length === 0) {
+        showNotification('error', 'Veuillez ajouter au moins une ligne de devis');
+        return;
+    }
+    
+    const data = {
+        client_id: formData.get('client_id'),
+        validity_date: formData.get('validity_date'),
+        items: items,
+        terms: formData.get('terms'),
+        tax_rate: 20 // TVA par défaut
+    };
+    
+    fetch('/finance/quotes/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showNotification('success', result.message);
+            $('#quoteModal').modal('hide');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification('error', result.error);
+        }
+    })
+    .catch(error => {
+        showNotification('error', 'Erreur lors de la création du devis');
+        console.error('Error:', error);
+    });
+}
+
+function savePayment() {
+    const formData = new FormData(document.getElementById('paymentForm'));
+    const invoiceId = formData.get('invoice_select') || $('#payment_invoice_id').val();
+    
+    if (!invoiceId) {
+        showNotification('error', 'Veuillez sélectionner une facture');
+        return;
+    }
+    
+    const amount = parseFloat(formData.get('amount'));
+    if (amount <= 0) {
+        showNotification('error', 'Le montant doit être supérieur à 0');
+        return;
+    }
+    
+    const data = {
+        invoice_id: parseInt(invoiceId),
+        amount: amount,
+        payment_date: formData.get('payment_date'),
+        payment_method: formData.get('payment_method'),
+        reference: formData.get('reference'),
+        notes: formData.get('notes')
+    };
+    
+    fetch('/finance/payments/record', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showNotification('success', result.message);
+            $('#paymentModal').modal('hide');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification('error', result.error);
+        }
+    })
+    .catch(error => {
+        showNotification('error', 'Erreur lors de l\'enregistrement du paiement');
+        console.error('Error:', error);
+    });
+}
+
+// Fonction pour charger les informations du client
+function loadClientInfo() {
+    const clientId = $('select[name="client_id"]').val();
+    if (clientId) {
+        // Vous pouvez ajouter ici une requête AJAX pour récupérer
+        // les informations du client (adresse, conditions de paiement, etc.)
+        console.log('Chargement des informations du client:', clientId);
+    }
+}
+
+// Fonction pour afficher une notification
+function showNotification(type, message) {
+    // Utilisez votre système de notification existant
+    // ou implémentez un simple toast
+    const toast = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>`;
+    $('#notifications-container').append(toast);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        $('.alert').alert('close');
+    }, 5000);
+}
+
+// Fonction pour charger les clients
+
+function loadClients() {
+    fetch('/finance/clients/emails')
+    .then(response => response.json())
+    .then(clients => {
+        const select = $('#quote_recipient');
+        select.empty();
+        select.append('<option value="">Sélectionner un client</option>');
+        
+        clients.forEach(client => {
+            if (client.email) {
+                const displayText = `${client.email} - ${client.name}${client.phone ? ' (' + client.phone + ')' : ''}`;
+                select.append(`<option value="${client.id}" data-email="${client.email}">${displayText}</option>`);
+            }
+        });
+    })
+    .catch(error => {
+        console.error('Erreur lors du chargement des clients:', error);
+    });
+}
+
+// Fonction pour gérer la sélection du client
+function setupClientSelection() {
+    $('#quote_recipient').on('change', function() {
+        const selectedOption = $(this).find('option:selected');
+        const email = selectedOption.data('email');
+        if (email) {
+            $('#quote_email').val(email);
+        } else {
+            $('#quote_email').val('');
+        }
+    });
+    
+    // Permettre aussi de saisir un email manuellement
+    $('#quote_email').on('input', function() {
+        const manualEmail = $(this).val();
+        if (manualEmail) {
+            $('#quote_recipient').val('');
+        }
+    });
+}
+
+// Fonction pour exporter les factures
+function exportInvoices() {
+    // Implémentez l'export CSV/Excel
+    console.log('Export des factures');
+    showNotification('info', 'Fonctionnalité d\'export à implémenter');
+}
+
+// Fonction pour générer des rapports
+function generateMonthlyReport() {
+    console.log('Génération du rapport mensuel');
+    showNotification('info', 'Génération du rapport mensuel');
+}
+
+function generateQuarterlyReport() {
+    console.log('Génération du rapport trimestriel');
+    showNotification('info', 'Génération du rapport trimestriel');
+}
+
+function generateAnnualReport() {
+    console.log('Génération du bilan annuel');
+    showNotification('info', 'Génération du bilan annuel');
+}
+
+function exportAccounting() {
+    console.log('Export comptable');
+    showNotification('info', 'Export comptable');
+}
+
+// Fonction pour visualiser une facture
+function viewInvoice(invoiceId) {
+    window.location.href = `/finance/invoices/${invoiceId}`;
+}
+
+// Fonction pour imprimer une facture
+function printInvoice(invoiceId) {
+    window.open(`/finance/invoices/${invoiceId}/print`, '_blank');
+}
+
+// Fonction pour éditer un devis
+function editQuote(quoteId) {
+    window.location.href = `/finance/quotes/${quoteId}/edit`;
+}
+
+
+// Charger les paiements
+function loadPayments() {
+    fetch('/finance/payments/list')
+    .then(response => response.json())
+    .then(payments => {
+        const tbody = $('#payments-list');
+        tbody.empty();
+        
+        payments.forEach(payment => {
+            const row = `
+                <tr>
+                    <td>${formatDate(payment.payment_date)}</td>
+                    <td><strong>${payment.invoice_number}</strong></td>
+                    <td>${payment.client_name}</td>
+                    <td><strong>${formatAmount(payment.amount)} Ar</strong></td>
+                    <td>${payment.payment_method}</td>
+                    <td>${payment.reference || '-'}</td>
+                    <td>${payment.notes || '-'}</td>
+                    <td>${payment.recorded_by_name || '-'}</td>
+                </tr>
+            `;
+            tbody.append(row);
+        });
+    })
+    .catch(error => {
+        console.error('Erreur lors du chargement des paiements:', error);
+    });
+}
+
+// Charger le graphique des paiements
+function loadPaymentsChart() {
+    fetch('/finance/payments/monthly-stats')
+    .then(response => response.json())
+    .then(data => {
+        const ctx = document.getElementById('paymentsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Paiements mensuels',
+                    data: data.data,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return formatAmount(value) + ' Ar';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+}
+
+// Générer le rapport mensuel
+function generateMonthlyReport() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    
+    fetch(`/finance/reports/monthly/${year}/${month}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Afficher les statistiques dans un modal ou les télécharger
+            displayReportModal('Rapport Mensuel', data.stats);
+        }
+    });
+}
+
+// Générer le rapport trimestriel
+function generateQuarterlyReport() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const quarter = Math.floor((now.getMonth() + 3) / 3);
+    
+    fetch(`/finance/reports/quarterly/${year}/${quarter}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayReportModal('Rapport Trimestriel', data.stats);
+        }
+    });
+}
+
+// Générer le bilan annuel
+function generateAnnualReport() {
+    const year = new Date().getFullYear();
+    
+    fetch(`/finance/reports/annual/${year}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayReportModal('Bilan Annuel', data.stats);
+        }
+    });
+}
+
+// Export comptable
+function exportAccounting() {
+    const formData = new FormData(document.getElementById('exportForm'));
+    const startDate = formData.get('start_date');
+    const endDate = formData.get('end_date');
+    
+    if (!startDate || !endDate) {
+        showNotification('error', 'Veuillez sélectionner une période');
+        return;
+    }
+    
+    fetch('/finance/export/accounting', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            start_date: startDate,
+            end_date: endDate
+        })
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        // Télécharger le fichier CSV
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `export_comptable_${startDate}_${endDate}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    });
+}
+
+// Fonction utilitaire pour formater les montants
+function formatAmount(amount) {
+    return parseFloat(amount).toFixed(2);
+}
+
+// Fonction utilitaire pour formater les dates
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR');
+}
+
+// Afficher le modal de rapport
+function displayReportModal(title, stats) {
+    // Créer et afficher un modal avec les statistiques
+    // Vous pouvez personnaliser cette fonction selon vos besoins
+    console.log(title, stats);
+    showNotification('success', `${title} généré avec succès`);
+}
+
+// Charger les paiements quand on change d'onglet
+$('a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
+    if (e.target.getAttribute('href') === '#payments') {
+        loadPayments();
+        loadPaymentsChart();
+    }
+});
+
+// Ajouter dans $(document).ready()
+$(document).ready(function() {
+    // ... code existant ...
+    
+    // Charger Chart.js si nécessaire
+    if (typeof Chart === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+        document.head.appendChild(script);
+    }
+});
+
+// Initialisation au chargement de la page
+$(document).ready(function() {
+    // Initialiser les sélecteurs de date
+    const today = new Date().toISOString().split('T')[0];
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 30);
+    const dueDateStr = dueDate.toISOString().split('T')[0];
+    
+    $('input[name="invoice_date"]').val(today);
+    $('input[name="due_date"]').val(dueDateStr);
+    $('input[name="quote_date"]').val(today);
+    $('input[name="validity_date"]').val(dueDateStr);
+    $('input[name="payment_date"]').val(today);
+    
+    // Initialiser les calculs
+    calculateTotals();
+    calculateQuoteTotals();
+
+    setupClientSelection();
+    setupInvoiceClientSelection();
+    loadClients();
+
+    
+    // Ajouter un conteneur pour les notifications
+    if (!$('#notifications-container').length) {
+        $('body').append('<div id="notifications-container" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;"></div>');
+    }
+});
+</script>
+{% endblock %}

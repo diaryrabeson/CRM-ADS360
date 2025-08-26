@@ -1,0 +1,419 @@
+{# dashboard/index.html #}
+{% extends "base.html" %}
+
+{% block title %}Tableau de Bord - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="page-title">Tableau de Bord</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item active">Tableau de Bord</li>
+            </ol>
+        </nav>
+    </div>
+    <div>
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary" onclick="refreshDashboard()">
+                <i class="fas fa-sync-alt me-2"></i>Actualiser
+            </button>
+            {% if has_permission('admin', 'read') %}
+            <button class="btn btn-primary" onclick="window.location.href='{{ url_for('admin.dashboard') }}'">
+                <i class="fas fa-cog me-2"></i>Administration
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats based on user permissions -->
+<div class="row mb-4">
+    {% if has_permission('prospects', 'read') %}
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon primary"><i class="fas fa-user-plus"></i></div>
+            <div class="stat-value">{{ stats.prospects_count or 0 }}</div>
+            <div class="stat-label">Prospects</div>
+            <div class="stat-change {% if stats.new_prospects_today > 0 %}positive{% else %}neutral{% endif %}">
+                <i class="fas {% if stats.new_prospects_today > 0 %}fa-arrow-up{% else %}fa-minus{% endif %} me-1"></i>
+                {{ stats.new_prospects_today or 0 }} aujourd'hui
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if has_permission('campaigns', 'read') %}
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon success"><i class="fas fa-bullhorn"></i></div>
+            <div class="stat-value">{{ stats.campaigns_count or 0 }}</div>
+            <div class="stat-label">Campagnes</div>
+            <div class="stat-change">
+                <span class="badge badge-success">{{ stats.active_campaigns or 0 }} actives</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if has_permission('finance', 'read') %}
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon warning"><i class="fas fa-euro-sign"></i></div>
+            <div class="stat-value">{{ "%.0f"|format(stats.monthly_revenue or 0) }}€</div>
+            <div class="stat-label">Revenu mensuel</div>
+            <div class="stat-change {% if stats.get('revenue_growth', 0) > 0 %}positive{% elif stats.get('revenue_growth', 0) < 0 %}negative{% else %}neutral{% endif %}">
+                <i class="fas {% if stats.get('revenue_growth', 0) > 0 %}fa-arrow-up{% elif stats.get('revenue_growth', 0) < 0 %}fa-arrow-down{% else %}fa-minus{% endif %} me-1"></i>
+                {{ "%.1f"|format(stats.get('revenue_growth', 0)) }}% vs mois dernier
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if has_permission('projects', 'read') %}
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon info"><i class="fas fa-tasks"></i></div>
+            <div class="stat-value">{{ stats.projects_count or 0 }}</div>
+            <div class="stat-label">Projets</div>
+            <div class="stat-change">
+                <span class="badge badge-warning">{{ stats.ongoing_projects or 0 }} en cours</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Quick Actions based on user permissions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Actions Rapides</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    {% if has_permission('prospects', 'create') %}
+                    <button class="btn btn-primary" onclick="window.location.href='{{ url_for('prospects.create') }}'">
+                        <i class="fas fa-user-plus me-2"></i>Nouveau Prospect
+                    </button>
+                    {% endif %}
+
+                    {% if has_permission('campaigns', 'create') %}
+                    <button class="btn btn-success" onclick="window.location.href='{{ url_for('campaigns.create') }}'">
+                        <i class="fas fa-bullhorn me-2"></i>Nouvelle Campagne
+                    </button>
+                    {% endif %}
+
+                    {% if has_permission('finance', 'create') %}
+                    <button class="btn btn-warning" onclick="window.location.href='{{ url_for('finance.create_invoice') }}'">
+                        <i class="fas fa-file-invoice me-2"></i>Nouvelle Facture
+                    </button>
+                    {% endif %}
+
+                    {% if has_permission('projects', 'create') %}
+                    <button class="btn btn-info" onclick="window.location.href='{{ url_for('projects.create') }}'">
+                        <i class="fas fa-tasks me-2"></i>Nouveau Projet
+                    </button>
+                    {% endif %}
+
+                    {% if has_permission('stock', 'create') %}
+                    <button class="btn btn-secondary" onclick="window.location.href='{{ url_for('stock.create_order') }}'">
+                        <i class="fas fa-box me-2"></i>Nouvelle Commande
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity and Modules -->
+<div class="row">
+    <!-- Left Column: Recent Items -->
+    <div class="col-md-8">
+        {% if has_permission('prospects', 'read') %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Prospects Récents</h5>
+                <a href="{{ url_for('prospects.index') }}" class="btn btn-sm btn-outline-primary">Voir tout</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nom</th>
+                                <th>Entreprise</th>
+                                <th>Email</th>
+                                <th>Téléphone</th>
+                                <th>Statut</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for prospect in recent_prospects %}
+                            <tr onclick="window.location.href='{{ url_for('prospects.view', id=prospect.id) }}'" style="cursor: pointer;">
+                                <td>{{ prospect.first_name }} {{ prospect.last_name }}</td>
+                                <td>{{ prospect.company or 'N/A' }}</td>
+                                <td>{{ prospect.email or 'N/A' }}</td>
+                                <td>{{ prospect.phone or 'N/A' }}</td>
+                                <td>
+                                    <span class="badge badge-{{ prospect.status_color or 'secondary' }}">
+                                        {{ prospect.status or 'Nouveau' }}
+                                    </span>
+                                </td>
+                                <td>{{ prospect.created_at.strftime('%d/%m/%Y') if prospect.created_at else '' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if has_permission('campaigns', 'read') %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Campagnes Actives</h5>
+                <a href="{{ url_for('campaigns.index') }}" class="btn btn-sm btn-outline-success">Voir tout</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nom</th>
+                                <th>Client</th>
+                                <th>Début</th>
+                                <th>Fin</th>
+                                <th>Budget</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for campaign in recent_campaigns %}
+                            <tr onclick="window.location.href='{{ url_for('campaigns.view', id=campaign.id) }}'" style="cursor: pointer;">
+                                <td>{{ campaign.name }}</td>
+                                <td>{{ campaign.client_name or 'N/A' }}</td>
+                                <td>{{ campaign.start_date.strftime('%d/%m/%Y') if campaign.start_date else '' }}</td>
+                                <td>{{ campaign.end_date.strftime('%d/%m/%Y') if campaign.end_date else '' }}</td>
+                                <td>{{ "%.2f"|format(campaign.budget or 0) }}€</td>
+                                <td>
+                                    <span class="badge badge-{{ campaign.status_color or 'secondary' }}">
+                                        {{ campaign.status or 'Planifiée' }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Column: Notifications and Quick Access -->
+    <div class="col-md-4">
+        <!-- Notifications -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Notifications</h5>
+                <span class="badge badge-primary">{{ notifications|length }}</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for notification in notifications %}
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-{{ notification.icon }} text-{{ notification.type }}"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <p class="mb-1">{{ notification.message }}</p>
+                                <small class="text-muted">{{ notification.time_ago }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="list-group-item text-center text-muted py-4">
+                        <i class="fas fa-bell-slash fa-2x mb-2"></i>
+                        <p>Aucune notification</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Access Modules -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Accès Rapide</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-2">
+                    {% if has_permission('prospects', 'read') %}
+                    <div class="col-6">
+                        <div class="quick-module text-center p-3 border rounded" onclick="window.location.href='{{ url_for('prospects.index') }}'">
+                            <i class="fas fa-users fa-2x text-primary mb-2"></i>
+                            <p class="mb-0 small">Prospects</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if has_permission('campaigns', 'read') %}
+                    <div class="col-6">
+                        <div class="quick-module text-center p-3 border rounded" onclick="window.location.href='{{ url_for('campaigns.index') }}'">
+                            <i class="fas fa-bullhorn fa-2x text-success mb-2"></i>
+                            <p class="mb-0 small">Campagnes</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if has_permission('finance', 'read') %}
+                    <div class="col-6">
+                        <div class="quick-module text-center p-3 border rounded" onclick="window.location.href='{{ url_for('finance.index') }}'">
+                            <i class="fas fa-euro-sign fa-2x text-warning mb-2"></i>
+                            <p class="mb-0 small">Finance</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if has_permission('projects', 'read') %}
+                    <div class="col-6">
+                        <div class="quick-module text-center p-3 border rounded" onclick="window.location.href='{{ url_for('projects.index') }}'">
+                            <i class="fas fa-tasks fa-2x text-info mb-2"></i>
+                            <p class="mb-0 small">Projets</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if has_permission('stock', 'read') %}
+                    <div class="col-6">
+                        <div class="quick-module text-center p-3 border rounded" onclick="window.location.href='{{ url_for('stock.index') }}'">
+                            <i class="fas fa-box fa-2x text-secondary mb-2"></i>
+                            <p class="mb-0 small">Stock</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if has_permission('hr', 'read') %}
+                    <div class="col-6">
+                        <div class="quick-module text-center p-3 border rounded" onclick="window.location.href='{{ url_for('hr.index') }}'">
+                            <i class="fas fa-user-tie fa-2x text-danger mb-2"></i>
+                            <p class="mb-0 small">RH</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Performance Charts -->
+{% if has_permission('finance', 'read') or has_permission('prospects', 'read') %}
+<div class="row mt-4">
+    {% if has_permission('finance', 'read') %}
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Performance Financière</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="revenueChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if has_permission('prospects', 'read') %}
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Conversion des Prospects</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="conversionChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<script>
+function refreshDashboard() {
+    window.location.reload();
+}
+
+// Initialize charts
+document.addEventListener('DOMContentLoaded', function() {
+    {% if has_permission('finance', 'read') and revenue_chart_data %}
+    // Revenue Chart
+    const revenueCtx = document.getElementById('revenueChart')?.getContext('2d');
+    if (revenueCtx) {
+        new Chart(revenueCtx, {
+            type: 'bar',
+            data: {{ revenue_chart_data|tojson }},
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    title: { display: true, text: 'Revenus mensuels' }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    {% if has_permission('prospects', 'read') and conversion_chart_data %}
+    // Conversion Chart
+    const conversionCtx = document.getElementById('conversionChart')?.getContext('2d');
+    if (conversionCtx) {
+        new Chart(conversionCtx, {
+            type: 'doughnut',
+            data: {{ conversion_chart_data|tojson }},
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    title: { display: true, text: 'Taux de conversion' }
+                }
+            }
+        });
+    }
+    {% endif %}
+});
+
+// Add hover effects to quick modules
+document.querySelectorAll('.quick-module').forEach(module => {
+    module.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = '#f8f9fa';
+        this.style.cursor = 'pointer';
+    });
+    module.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = '';
+    });
+});
+</script>
+
+<style>
+.quick-module {
+    transition: all 0.2s ease;
+}
+.quick-module:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.stat-card {
+    transition: transform 0.2s ease;
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}

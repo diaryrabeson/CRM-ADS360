@@ -1,0 +1,1086 @@
+{% extends "base.html" %}
+
+{% block title %}Stock - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="page-title">Gestion du Stock</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item active">Stock</li>
+            </ol>
+        </nav>
+    </div>
+    <div>
+        <button class="btn btn-light me-2" onclick="showMovements()">
+            <i class="fas fa-exchange-alt me-2"></i>Mouvements
+        </button>
+        <button class="btn btn-primary me-2" onclick="showAssignWarehouseModal()">
+            <i class="fas fa-link me-2"></i>Assigner Entrepôts
+        </button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#equipmentAddModal">
+            <i class="fas fa-plus me-2"></i>Nouvel équipement
+        </button>
+    </div>
+</div>
+
+<!-- Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="fas fa-boxes"></i>
+            </div>
+            <div class="stat-value">{{ stats.total_equipment }}</div>
+            <div class="stat-label">Total équipements</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="fas fa-warehouse"></i>
+            </div>
+            <div class="stat-value">{{ stats.total_warehouses }}</div>
+            <div class="stat-label">Entrepôts</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="stat-value">{{ stats.low_stock_items }}</div>
+            <div class="stat-label">Stock faible</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i class="fas fa-truck"></i>
+            </div>
+            <div class="stat-value">{{ stats.recent_movements }}</div>
+            <div class="stat-label">Mouvements (7j)</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link active" data-bs-toggle="tab" href="#inventory">Inventaire</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#warehouses">Entrepôts</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#alerts">Alertes</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#sites">Sites</a>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content">
+    <!-- Inventory Tab -->
+    <div class="tab-pane fade show active" id="inventory">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Inventaire des équipements</h5>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#transferModal">
+                        <i class="fas fa-exchange-alt me-2"></i>Transfert
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Équipement</th>
+                                <th>Type</th>
+                                <th>N° Série</th>
+                                <th>Stock Total</th>
+                                <th>Disponible</th>
+                                <th>Installé</th>
+                                <th>État</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for equipment in equipment_stock %}
+                            <tr>
+                                <td>
+                                    <strong>{{ equipment.name }}</strong><br>
+                                    <small class="text-muted">{{ equipment.model }}</small>
+                                </td>
+                                <td>{{ equipment.type }}</td>
+                                <td>{{ equipment.serial_number }}</td>
+                                <td>{{ equipment.total_stock|default(0) }}</td>
+                                <td>
+                                    <span class="badge badge-success">{{ equipment.available|default(0) }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge badge-info">{{ equipment.installed|default(0) }}</span>
+                                </td>
+                                <td>
+                                    {% if equipment.status == 'available' %}
+                                        <span class="badge badge-success">Disponible</span>
+                                    {% elif equipment.status == 'installed' %}
+                                        <span class="badge badge-info">Installé</span>
+                                    {% elif equipment.status == 'maintenance' %}
+                                        <span class="badge badge-warning">Maintenance</span>
+                                    {% else %}
+                                        <span class="badge badge-danger">Retiré</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-light" onclick="viewEquipmentHistory({{ equipment.id }})" title="Historique">
+                                            <i class="fas fa-history"></i>
+                                        </button>
+                                        <button class="btn btn-light" onclick="editEquipment({{ equipment.id }})" title="Modifier">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-light text-danger" onclick="deleteEquipment({{ equipment.id }})" title="Supprimer">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Warehouses Tab -->
+    <div class="tab-pane fade" id="warehouses">
+        <div class="row">
+            {% for warehouse in warehouses %}
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">{{ warehouse.name }}</h6>
+                            <div>
+                                <button class="btn btn-sm btn-light me-1" onclick="editWarehouse({{ warehouse.id }})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                {% if not warehouse.manager_name %}
+                                <button class="btn btn-sm btn-outline-primary" onclick="assignManager({{ warehouse.id }})">
+                                    <i class="fas fa-user-plus"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2">
+                            <i class="fas fa-user me-2"></i>
+                            Responsable: 
+                            {% if warehouse.manager_name %}
+                                {{ warehouse.manager_name }}
+                            {% else %}
+                                <span class="text-muted">Non assigné</span>
+                            {% endif %}
+                        </p>
+                        <p class="mb-2">
+                            <i class="fas fa-map-marker-alt me-2"></i>{{ warehouse.location }}
+                        </p>
+                        <div class="row mt-3">
+                            <div class="col-6">
+                                <small class="text-muted">Types d'équipements</small>
+                                <h5>{{ warehouse.equipment_types|default(0) }}</h5>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Quantité totale</small>
+                                <h5>{{ warehouse.total_quantity|default(0) }}</h5>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <small class="text-muted">Sites desservis:</small>
+                            <div id="sites-{{ warehouse.id }}">
+                                <small class="text-muted">Chargement...</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            
+            <!-- Add Warehouse Card -->
+            <div class="col-md-6 mb-3">
+                <div class="card h-100 text-center" style="border: 2px dashed #dee2e6; cursor: pointer;" 
+                     onclick="$('#warehouseModal').modal('show')">
+                    <div class="card-body d-flex flex-column justify-content-center">
+                        <i class="fas fa-plus-circle fa-3x text-muted mb-3"></i>
+                        <h6 class="text-muted">Ajouter un entrepôt</h6>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts Tab -->
+    <div class="tab-pane fade" id="alerts">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Alertes de stock minimum</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Équipement</th>
+                                <th>Entrepôt</th>
+                                <th>Stock actuel</th>
+                                <th>Stock minimum</th>
+                                <th>État</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for alert in low_stock_alerts %}
+                            <tr>
+                                <td>{{ alert.equipment_name }}</td>
+                                <td>{{ alert.warehouse_name }}</td>
+                                <td>
+                                    <strong class="text-danger">{{ alert.quantity }}</strong>
+                                </td>
+                                <td>{{ alert.min_quantity }}</td>
+                                <td>
+                                    {% if alert.quantity == 0 %}
+                                        <span class="badge badge-danger">Rupture</span>
+                                    {% else %}
+                                        <span class="badge badge-warning">Stock faible</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary" onclick="createPurchaseOrder({{ alert.equipment_id }})">
+                                        <i class="fas fa-shopping-cart me-1"></i>Commander
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sites Tab -->
+    <div class="tab-pane fade" id="sites">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Sites et leur entrepôt assigné</h5>
+                    <button class="btn btn-sm btn-info" onclick="loadSites()">
+                        <i class="fas fa-sync-alt me-2"></i>Actualiser
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Site</th>
+                                <th>Type</th>
+                                <th>Ville</th>
+                                <th>Entrepôt assigné</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sitesTableBody">
+                            <!-- Chargé dynamiquement -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Equipment Modal -->
+<div class="modal fade" id="equipmentAddModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouvel équipement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="equipmentForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nom de l'équipement *</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Type *</label>
+                            <select class="form-select" name="type" required>
+                                <option value="">Sélectionner</option>
+                                <option value="Écran LED">Écran LED</option>
+                                <option value="Écran LCD">Écran LCD</option>
+                                <option value="Projecteur">Projecteur</option>
+                                <option value="Panneau publicitaire">Panneau publicitaire</option>
+                                <option value="Totem digital">Totem digital</option>
+                                <option value="Autre">Autre</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Numéro de série *</label>
+                            <input type="text" class="form-control" name="serial_number" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Modèle</label>
+                            <input type="text" class="form-control" name="model">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Fabricant</label>
+                            <input type="text" class="form-control" name="manufacturer">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Date d'achat</label>
+                            <input type="date" class="form-control" name="purchase_date">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Prix d'achat</label>
+                            <input type="number" class="form-control" name="purchase_price" step="0.01">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Entrepôt initial</label>
+                            <select class="form-select" name="warehouse_id">
+                                <option value="">Sélectionner</option>
+                                {% for warehouse in warehouses %}
+                                <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Quantité initiale</label>
+                            <input type="number" class="form-control" name="initial_quantity" value="1" min="1">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Stock minimum</label>
+                            <input type="number" class="form-control" name="min_quantity" value="1" min="0">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Spécifications techniques</label>
+                            <textarea class="form-control" name="specifications" rows="3"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveEquipment()">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Transfert d'équipement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="transferForm">
+                    <div class="mb-3">
+                        <label class="form-label">Équipement *</label>
+                        <select class="form-select" name="equipment_id" required onchange="loadStockInfo()">
+                            <option value="">Sélectionner</option>
+                            {% for equipment in equipment_stock %}
+                            <option value="{{ equipment.id }}">{{ equipment.name }} - {{ equipment.serial_number }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">De (Type) *</label>
+                            <select class="form-select" name="from_type" required onchange="loadFromLocations()">
+                                <option value="">Sélectionner</option>
+                                <option value="warehouse">Entrepôt</option>
+                                <option value="site">Site</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Lieu d'origine *</label>
+                            <select class="form-select" name="from_id" required>
+                                <option value="">Sélectionner d'abord le type</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Vers (Type) *</label>
+                            <select class="form-select" name="to_type" required onchange="loadToLocations()">
+                                <option value="">Sélectionner</option>
+                                <option value="warehouse">Entrepôt</option>
+                                <option value="site">Site</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Destination *</label>
+                            <select class="form-select" name="to_id" required>
+                                <option value="">Sélectionner d'abord le type</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 mt-3">
+                        <label class="form-label">Quantité *</label>
+                        <input type="number" class="form-control" name="quantity" min="1" value="1" required>
+                        <small class="text-muted">Stock disponible: <span id="available_stock">-</span></small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Raison du transfert</label>
+                        <select class="form-select" name="reason">
+                            <option value="Installation">Installation</option>
+                            <option value="Maintenance">Maintenance</option>
+                            <option value="Remplacement">Remplacement</option>
+                            <option value="Stockage">Stockage</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="executeTransfer()">
+                    <i class="fas fa-exchange-alt me-2"></i>Effectuer le transfert
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Warehouse Modal -->
+<div class="modal fade" id="warehouseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouvel entrepôt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="warehouseForm">
+                    <div class="mb-3">
+                        <label class="form-label">Nom de l'entrepôt *</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Localisation *</label>
+                        <textarea class="form-control" name="location" rows="2" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Responsable (optionnel)</label>
+                        <select class="form-select" name="manager_id">
+                            <option value="">Aucun responsable assigné</option>
+                            {% for user in users %}
+                            <option value="{{ user.id }}">{{ user.first_name }} {{ user.last_name }} - {{ user.email }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Peut être assigné ultérieurement</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveWarehouse()">
+                    <i class="fas fa-save me-2"></i>Créer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Warehouse Modal -->
+<div class="modal fade" id="assignWarehouseModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Assigner des sites à un entrepôt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label">Sélectionner l'entrepôt</label>
+                        <select class="form-select" id="assignWarehouseSelect">
+                            <option value="">Choisir un entrepôt</option>
+                            {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.id }}">{{ warehouse.name }} - {{ warehouse.location }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <h6>Sites sans entrepôt assigné</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="selectAllSites"></th>
+                                    <th>Site</th>
+                                    <th>Ville</th>
+                                    <th>Entité</th>
+                                </tr>
+                            </thead>
+                            <tbody id="unassignedSitesList">
+                                <!-- Chargé dynamiquement -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="assignWarehouseToSites()">
+                    <i class="fas fa-link me-2"></i>Assigner
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Manager Modal -->
+<div class="modal fade" id="assignManagerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Assigner un responsable</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="assignManagerWarehouseId">
+                <div class="mb-3">
+                    <label class="form-label">Sélectionner un responsable</label>
+                    <select class="form-select" id="assignManagerSelect">
+                        <option value="">Aucun responsable</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}">{{ user.first_name }} {{ user.last_name }} - {{ user.email }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveManagerAssignment()">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Stock Functions
+// Stock Functions - Version simplifiée qui utilise les routes existantes
+function saveEquipment() {
+    const form = document.getElementById('equipmentForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    fetch('/stock/equipment/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Erreur réseau: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Erreur lors de la création');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur de connexion au serveur');
+    });
+}
+
+function executeTransfer() {
+    const form = document.getElementById('transferForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    // Validation avant envoi
+    if (!data.equipment_id || !data.from_type || !data.from_id || !data.to_type || !data.to_id || !data.quantity) {
+        alert('Veuillez remplir tous les champs obligatoires');
+        return;
+    }
+    
+    fetch('/stock/transfer', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('transferModal')).hide();
+            alert('Transfert effectué avec succès');
+            location.reload();
+        } else {
+            alert('Erreur: ' + (data.error || 'Erreur lors du transfert'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur de connexion au serveur');
+    });
+}
+
+function loadFromLocations() {
+    const type = document.querySelector('[name="from_type"]').value;
+    const equipmentId = document.querySelector('[name="equipment_id"]').value;
+    const select = document.querySelector('[name="from_id"]');
+    
+    console.log('loadFromLocations - Type:', type, 'Equipment:', equipmentId);
+    
+    // Réinitialiser les options
+    select.innerHTML = '<option value="">Chargement...</option>';
+    
+    if (!type) {
+        select.innerHTML = '<option value="">Sélectionner d\'abord le type</option>';
+        return;
+    }
+    
+    if (type === 'warehouse') {
+        if (equipmentId) {
+            // Utiliser la route existante pour les entrepôts avec équipement
+            fetch(`/stock/api/equipment/${equipmentId}/warehouses`)
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Warehouses data:', data);
+                    select.innerHTML = '<option value="">Sélectionner un entrepôt</option>';
+                    if (data.length === 0) {
+                        select.innerHTML = '<option value="">Aucun entrepôt avec cet équipement</option>';
+                        return;
+                    }
+                    data.forEach(warehouse => {
+                        const stockInfo = warehouse.quantity ? ` (Stock: ${warehouse.quantity})` : '';
+                        select.innerHTML += `<option value="${warehouse.id}">${warehouse.name}${stockInfo}</option>`;
+                    });
+                })
+                .catch(error => {
+                    console.error('Erreur chargement entrepôts:', error);
+                    select.innerHTML = '<option value="">Erreur de chargement</option>';
+                });
+        } else {
+            // Tous les entrepôts
+            fetch('/stock/api/warehouses')
+                .then(response => response.json())
+                .then(data => {
+                    select.innerHTML = '<option value="">Sélectionner un entrepôt</option>';
+                    data.forEach(warehouse => {
+                        select.innerHTML += `<option value="${warehouse.id}">${warehouse.name}</option>`;
+                    });
+                })
+                .catch(error => {
+                    console.error('Erreur chargement entrepôts:', error);
+                    select.innerHTML = '<option value="">Erreur de chargement</option>';
+                });
+        }
+    } else if (type === 'site') {
+        // Utiliser la route existante pour les sites
+        const url = equipmentId ? `/stock/api/sites?equipment_id=${equipmentId}` : '/stock/api/sites';
+        
+        fetch(url)
+            .then(response => {
+                console.log('Sites response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Sites data:', data);
+                select.innerHTML = '<option value="">Sélectionner un site</option>';
+                if (data.length === 0) {
+                    select.innerHTML = '<option value="">Aucun site disponible</option>';
+                    return;
+                }
+                data.forEach(site => {
+                    select.innerHTML += `<option value="${site.id}">${site.name} - ${site.city_name || 'N/A'}</option>`;
+                });
+            })
+            .catch(error => {
+                console.error('Erreur chargement sites:', error);
+                select.innerHTML = '<option value="">Erreur de chargement</option>';
+            });
+    }
+}
+
+function loadToLocations() {
+    const type = document.querySelector('[name="to_type"]').value;
+    const select = document.querySelector('[name="to_id"]');
+    
+    console.log('loadToLocations - Type:', type);
+    
+    // Réinitialiser les options
+    select.innerHTML = '<option value="">Chargement...</option>';
+    
+    if (!type) {
+        select.innerHTML = '<option value="">Sélectionner d\'abord le type</option>';
+        return;
+    }
+    
+    if (type === 'warehouse') {
+        // Pour la destination, tous les entrepôts
+        fetch('/stock/api/warehouses')
+            .then(response => response.json())
+            .then(data => {
+                select.innerHTML = '<option value="">Sélectionner un entrepôt</option>';
+                data.forEach(warehouse => {
+                    select.innerHTML += `<option value="${warehouse.id}">${warehouse.name} - ${warehouse.location}</option>`;
+                });
+            })
+            .catch(error => {
+                console.error('Erreur chargement entrepôts destination:', error);
+                select.innerHTML = '<option value="">Erreur de chargement</option>';
+            });
+            
+    } else if (type === 'site') {
+        // Pour la destination, tous les sites
+        fetch('/stock/api/sites')
+            .then(response => response.json())
+            .then(data => {
+                select.innerHTML = '<option value="">Sélectionner un site</option>';
+                data.forEach(site => {
+                    select.innerHTML += `<option value="${site.id}">${site.name} - ${site.city_name || 'N/A'}</option>`;
+                });
+            })
+            .catch(error => {
+                console.error('Erreur chargement sites destination:', error);
+                select.innerHTML = '<option value="">Erreur de chargement</option>';
+            });
+    }
+}
+
+function loadStockInfo() {
+    const equipmentId = document.querySelector('[name="equipment_id"]').value;
+    const availableStockSpan = document.getElementById('available_stock');
+    
+    console.log('loadStockInfo - Equipment:', equipmentId);
+    
+    if (equipmentId) {
+        fetch(`/stock/api/equipment/${equipmentId}/stock`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('Stock data:', data);
+                availableStockSpan.textContent = data.available || 0;
+                
+                // Recharger les lieux d'origine si le type est déjà sélectionné
+                const fromType = document.querySelector('[name="from_type"]').value;
+                if (fromType) {
+                    loadFromLocations();
+                }
+            })
+            .catch(error => {
+                console.error('Erreur chargement stock:', error);
+                availableStockSpan.textContent = '-';
+            });
+    } else {
+        availableStockSpan.textContent = '-';
+        
+        // Réinitialiser les selects
+        document.querySelector('[name="from_id"]').innerHTML = '<option value="">Sélectionner d\'abord l\'équipement</option>';
+        document.querySelector('[name="to_id"]').innerHTML = '<option value="">Sélectionner d\'abord le type</option>';
+    }
+}
+
+function viewEquipmentHistory(id) {
+    window.location.href = `/stock/equipment/${id}/history`;
+}
+
+function editEquipment(id) {
+    window.location.href = `/stock/equipment/${id}/edit`;
+}
+
+function deleteEquipment(id) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cet équipement ?')) {
+        fetch(`/stock/equipment/${id}/delete`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function saveWarehouse() {
+    const form = document.getElementById('warehouseForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    // Gérer le manager_id optionnel
+    if (data.manager_id === '') {
+        data.manager_id = null;
+    }
+    
+    fetch('/stock/warehouses/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erreur: ' + (data.error || 'Erreur lors de la création'));
+        }
+    });
+}
+
+function editWarehouse(id) {
+    window.location.href = `/stock/warehouses/${id}/edit`;
+}
+
+function assignManager(warehouseId) {
+    document.getElementById('assignManagerWarehouseId').value = warehouseId;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('assignManagerModal')).show();
+}
+
+function saveManagerAssignment() {
+    const warehouseId = document.getElementById('assignManagerWarehouseId').value;
+    const managerId = document.getElementById('assignManagerSelect').value;
+    
+    fetch(`/stock/warehouses/${warehouseId}/assign-manager`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ manager_id: managerId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('assignManagerModal')).hide();
+            alert('Responsable assigné avec succès');
+            location.reload();
+        } else {
+            alert('Erreur: ' + (data.error || 'Erreur lors de l\'assignation'));
+        }
+    });
+}
+
+function createPurchaseOrder(equipmentId) {
+    window.location.href = `/purchases/create?equipment_id=${equipmentId}`;
+}
+
+function showMovements() {
+    window.location.href = '/stock/movements';
+}
+
+// Charger les sites sans entrepôt
+function loadUnassignedSites() {
+    fetch('/stock/api/sites/unassigned')
+        .then(response => response.json())
+        .then(sites => {
+            const container = document.getElementById('unassignedSitesList');
+            container.innerHTML = '';
+            
+            if (sites.length === 0) {
+                container.innerHTML = '<tr><td colspan="4" class="text-center">Tous les sites ont un entrepôt assigné</td></tr>';
+                return;
+            }
+            
+            sites.forEach(site => {
+                container.innerHTML += `
+                    <tr>
+                        <td><input type="checkbox" name="site_ids" value="${site.id}"></td>
+                        <td>${site.name}</td>
+                        <td>${site.city_name || 'N/A'}</td>
+                        <td>${site.entity_name || 'N/A'}</td>
+                    </tr>
+                `;
+            });
+            
+            // Select all functionality
+            document.getElementById('selectAllSites').addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('input[name="site_ids"]');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+            });
+        });
+}
+
+// Assigner les sites sélectionnés à l'entrepôt
+function assignWarehouseToSites() {
+    const warehouseId = document.getElementById('assignWarehouseSelect').value;
+    const selectedSites = Array.from(document.querySelectorAll('input[name="site_ids"]:checked'))
+        .map(checkbox => checkbox.value);
+    
+    if (!warehouseId || selectedSites.length === 0) {
+        alert('Veuillez sélectionner un entrepôt et au moins un site');
+        return;
+    }
+    
+    fetch('/stock/api/sites/assign-warehouse', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            warehouse_id: warehouseId,
+            site_ids: selectedSites
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            bootstrap.Modal.getInstance(document.getElementById('assignWarehouseModal')).hide();
+            location.reload();
+        } else {
+            alert('Erreur: ' + data.error);
+        }
+    });
+}
+
+// Ouvrir le modal d'assignation
+function showAssignWarehouseModal() {
+    loadUnassignedSites();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('assignWarehouseModal')).show();
+}
+
+// Charger les sites pour l'onglet Sites
+function loadSites() {
+    fetch('/stock/api/sites')
+        .then(response => response.json())
+        .then(sites => {
+            const container = document.getElementById('sitesTableBody');
+            container.innerHTML = '';
+            
+            sites.forEach(site => {
+                container.innerHTML += `
+                    <tr>
+                        <td>${site.name}</td>
+                        <td>${site.type || 'N/A'}</td>
+                        <td>${site.city_name || 'N/A'}</td>
+                        <td>${site.warehouse_name || '<span class="text-danger">Non assigné</span>'}</td>
+                        <td>
+                            <span class="badge ${site.is_active ? 'badge-success' : 'badge-secondary'}">
+                                ${site.is_active ? 'Actif' : 'Inactif'}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-light" onclick="editSite(${site.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        })
+        .catch(error => {
+            console.error('Erreur chargement sites:', error);
+        });
+}
+
+// Charger les sites desservis par chaque entrepôt
+function loadWarehouseSites() {
+    const warehouseSiteContainers = document.querySelectorAll('[id^="sites-"]');
+    warehouseSiteContainers.forEach(container => {
+        const warehouseId = container.id.replace('sites-', '');
+        
+        fetch(`/stock/api/warehouse/${warehouseId}/sites`)
+            .then(response => response.json())
+            .then(sites => {
+                if (sites.length > 0) {
+                    let html = '';
+                    sites.slice(0, 3).forEach(site => {
+                        html += `<div><small>• ${site.name}</small></div>`;
+                    });
+                    if (sites.length > 3) {
+                        html += `<div><small>... et ${sites.length - 3} autres</small></div>`;
+                    }
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<small class="text-muted">Aucun site assigné</small>';
+                }
+            })
+            .catch(error => {
+                console.error('Erreur chargement sites entrepôt:', error);
+                container.innerHTML = '<small class="text-danger">Erreur de chargement</small>';
+            });
+    });
+}
+
+function editSite(siteId) {
+    window.location.href = `/sites/${siteId}/edit`;
+}
+
+// Au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    // Charger les onglets si actifs
+    if (document.getElementById('sitesTableBody')) {
+        loadSites();
+    }
+    
+    // Charger les sites pour chaque entrepôt
+    if (document.querySelector('[id^="sites-"]')) {
+        loadWarehouseSites();
+    }
+    
+    // Reset des formulaires lors de l'ouverture des modals
+    const transferModal = document.getElementById('transferModal');
+    if (transferModal) {
+        transferModal.addEventListener('show.bs.modal', function() {
+            document.getElementById('transferForm').reset();
+            document.getElementById('available_stock').textContent = '-';
+        });
+    }
+    
+    const equipmentModal = document.getElementById('equipmentAddModal');
+    if (equipmentModal) {
+        equipmentModal.addEventListener('show.bs.modal', function() {
+            document.getElementById('equipmentForm').reset();
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,744 @@
+<!-- ======================================== -->
+<!-- TEMPLATES/HR/INDEX.HTML - Gestion RH -->
+<!-- ======================================== -->
+{% extends "base.html" %}
+
+{% block title %}Ressources Humaines - CRM ADS 360{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="page-title">Gestion des Ressources Humaines</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Accueil</a></li>
+                <li class="breadcrumb-item active">RH</li>
+            </ol>
+        </nav>
+    </div>
+    <div>
+        <button class="btn btn-light me-2" onclick="window.location.href='{{ url_for('hr.attendance') }}'">
+            <i class="fas fa-clock me-2"></i>Présences
+        </button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#employeeModal">
+            <i class="fas fa-user-plus me-2"></i>Nouvel employé
+        </button>
+    </div>
+</div>
+
+<!-- Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon primary">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-value">{{ stats.total_employees }}</div>
+            <div class="stat-label">Total employés</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon success">
+                <i class="fas fa-file-contract"></i>
+            </div>
+            <div class="stat-value">{{ stats.active_contracts }}</div>
+            <div class="stat-label">Contrats actifs</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon warning">
+                <i class="fas fa-plane"></i>
+            </div>
+            <div class="stat-value">{{ stats.pending_leaves }}</div>
+            <div class="stat-label">Congés en attente</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon info">
+                <i class="fas fa-graduation-cap"></i>
+            </div>
+            <div class="stat-value">{{ stats.trainings_month }}</div>
+            <div class="stat-label">Formations ce mois</div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Congés en attente</h5>
+            </div>
+            <div class="card-body">
+                {% for leave in pending_leaves %}
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <strong>{{ leave.employee_name }}</strong><br>
+                        <small class="text-muted">
+                            {{ leave.type }} - {{ leave.start_date.strftime('%d/%m/%Y') }} au {{ leave.end_date.strftime('%d/%m/%Y') }}
+                        </small>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-success" onclick="approveLeave({{ leave.id }})">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button class="btn btn-danger" onclick="rejectLeave({{ leave.id }})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+                {% if not pending_leaves %}
+                <p class="text-muted mb-0">Aucune demande en attente</p>
+                {% endif %}
+            </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Anniversaires d'embauche ce mois</h5>
+            </div>
+            <div class="card-body">
+                {% for birthday in birthdays %}
+                <div class="d-flex align-items-center mb-3">
+                    <div class="avatar avatar-sm me-3">
+                        <i class="fas fa-birthday-cake"></i>
+                    </div>
+                    <div>
+                        <strong>{{ birthday.name }}</strong><br>
+                        <small class="text-muted">
+                            {{ birthday.hire_date.strftime('%d/%m/%Y') }} - {{ birthday.years }} ans dans l'entreprise
+                        </small>
+                    </div>
+                </div>
+                {% endfor %}
+                {% if not birthdays %}
+                <p class="text-muted mb-0">Aucun anniversaire ce mois</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Employees Table -->
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Liste des employés</h5>
+            <div>
+                <button class="btn btn-sm btn-light" onclick="exportEmployees()">
+                    <i class="fas fa-download me-2"></i>Exporter
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Employé</th>
+                        <th>Poste</th>
+                        <th>Département</th>
+                        <th>Type contrat</th>
+                        <th>Date embauche</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee in employees %}
+                    <tr onclick="viewEmployee({{ employee.id }})" style="cursor: pointer;">
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar avatar-sm me-3">
+                                    {{ employee.first_name[0] }}{{ employee.last_name[0] }}
+                                </div>
+                                <div>
+                                    <strong>{{ employee.full_name }}</strong><br>
+                                    <small class="text-muted">{{ employee.employee_code }}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ employee.position }}</td>
+                        <td>{{ employee.department }}</td>
+                        <td>
+                            <span class="badge badge-primary">{{ employee.contract_type }}</span>
+                        </td>
+                        <td>{{ employee.hire_date.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            {% if employee.contract_end_date and employee.contract_end_date < today %}
+                                <span class="badge badge-danger">Terminé</span>
+                            {% else %}
+                                <span class="badge badge-success">Actif</span>
+                            {% endif %}
+                        </td>
+                        <td onclick="event.stopPropagation();">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-light" onclick="editEmployee({{ employee.id }})" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-light" onclick="showLeaveModal({{ employee.id }})" title="Congé">
+                                    <i class="fas fa-plane"></i>
+                                </button>
+                                <button class="btn btn-light" onclick="showEvaluationModal({{ employee.id }})" title="Évaluation">
+                                    <i class="fas fa-star"></i>
+                                </button>
+                                <button class="btn btn-light text-danger" onclick="deleteEmployee({{ employee.id }})" title="Supprimer">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Employee Modal -->
+<div class="modal fade" id="employeeModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouvel employé</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="employeeForm">
+                    <div class="row g-3">
+                        <!-- Informations personnelles -->
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">Informations personnelles</h6>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Code employé *</label>
+                            <input type="text" class="form-control" name="employee_code" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Prénom *</label>
+                            <input type="text" class="form-control" name="first_name" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Nom *</label>
+                            <input type="text" class="form-control" name="last_name" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Email *</label>
+                            <input type="email" class="form-control" name="email" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Téléphone *</label>
+                            <input type="tel" class="form-control" name="phone" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Date de naissance</label>
+                            <input type="date" class="form-control" name="birth_date">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Adresse</label>
+                            <textarea class="form-control" name="address" rows="1"></textarea>
+                        </div>
+                        
+                        <!-- Informations professionnelles -->
+                        <div class="col-12 mt-4">
+                            <h6 class="text-primary mb-3">Informations professionnelles</h6>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Département *</label>
+                            <select class="form-select" name="department" required>
+                                <option value="">Sélectionner</option>
+                                <option value="Direction">Direction</option>
+                                <option value="Commercial">Commercial</option>
+                                <option value="Marketing">Marketing</option>
+                                <option value="Technique">Technique</option>
+                                <option value="Finance">Finance</option>
+                                <option value="RH">Ressources Humaines</option>
+                                <option value="Logistique">Logistique</option>
+                                <option value="IT">Informatique</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Poste *</label>
+                            <input type="text" class="form-control" name="position" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date d'embauche *</label>
+                            <input type="date" class="form-control" name="hire_date" required>
+                        </div>
+                        
+                        <!-- Contrat -->
+                        <div class="col-12 mt-4">
+                            <h6 class="text-primary mb-3">Informations contractuelles</h6>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Type de contrat *</label>
+                            <select class="form-select" name="contract_type" required onchange="toggleContractEnd()">
+                                <option value="">Sélectionner</option>
+                                <option value="CDI">CDI</option>
+                                <option value="CDD">CDD</option>
+                                <option value="Stage">Stage</option>
+                                <option value="Alternance">Alternance</option>
+                                <option value="Freelance">Freelance</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Date fin de contrat</label>
+                            <input type="date" class="form-control" name="contract_end_date" id="contract_end_date">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Salaire mensuel</label>
+                            <input type="number" class="form-control" name="salary" step="100">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Rôle système</label>
+                            <select class="form-select" name="role_id">
+                                <option value="">Aucun accès système</option>
+                                {% for role in roles %}
+                                <option value="{{ role.id }}">{{ role.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- Contact d'urgence -->
+                        <div class="col-12 mt-4">
+                            <h6 class="text-primary mb-3">Contact d'urgence</h6>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Nom du contact</label>
+                            <input type="text" class="form-control" name="emergency_name">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Relation</label>
+                            <input type="text" class="form-control" name="emergency_relation">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Téléphone</label>
+                            <input type="tel" class="form-control" name="emergency_phone">
+                        </div>
+                        
+                        <!-- Options -->
+                        <div class="col-12 mt-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="create_user_account" id="createAccount">
+                                <label class="form-check-label" for="createAccount">
+                                    Créer un compte utilisateur pour cet employé
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveEmployee()">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leave Request Modal -->
+<div class="modal fade" id="leaveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Demande de congé</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="leaveForm">
+                    <input type="hidden" name="employee_id" id="leave_employee_id">
+                    <div class="mb-3">
+                        <label class="form-label">Type de congé *</label>
+                        <select class="form-select" name="type" required>
+                            <option value="">Sélectionner</option>
+                            <option value="Congé payé">Congé payé</option>
+                            <option value="Congé maladie">Congé maladie</option>
+                            <option value="Congé maternité">Congé maternité</option>
+                            <option value="Congé paternité">Congé paternité</option>
+                            <option value="Congé sans solde">Congé sans solde</option>
+                            <option value="Formation">Formation</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Date de début *</label>
+                            <input type="date" class="form-control" name="start_date" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Date de fin *</label>
+                            <input type="date" class="form-control" name="end_date" required>
+                        </div>
+                    </div>
+                    <div class="mb-3 mt-3">
+                        <label class="form-label">Raison</label>
+                        <textarea class="form-control" name="reason" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveLeaveRequest()">
+                    <i class="fas fa-paper-plane me-2"></i>Soumettre
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Performance Evaluation Modal -->
+<div class="modal fade" id="evaluationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Évaluation de performance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="evaluationForm">
+                    <input type="hidden" name="employee_id" id="eval_employee_id">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Période d'évaluation *</label>
+                            <select class="form-select" name="review_period" required>
+                                <option value="">Sélectionner</option>
+                                <option value="Q1 2025">Q1 2025</option>
+                                <option value="Q2 2025">Q2 2025</option>
+                                <option value="Q3 2025">Q3 2025</option>
+                                <option value="Q4 2025">Q4 2025</option>
+                                <option value="Annuelle 2025">Annuelle 2025</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Note globale *</label>
+                            <select class="form-select" name="overall_rating" required>
+                                <option value="">Sélectionner</option>
+                                <option value="5">Excellent (5/5)</option>
+                                <option value="4">Très bon (4/5)</option>
+                                <option value="3">Satisfaisant (3/5)</option>
+                                <option value="2">À améliorer (2/5)</option>
+                                <option value="1">Insuffisant (1/5)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Critères d'évaluation -->
+                        <div class="col-12">
+                            <h6 class="text-primary">Critères d'évaluation</h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Qualité du travail</label>
+                            <input type="range" class="form-range" name="quality" min="1" max="5" value="3">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Productivité</label>
+                            <input type="range" class="form-range" name="productivity" min="1" max="5" value="3">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Initiative</label>
+                            <input type="range" class="form-range" name="initiative" min="1" max="5" value="3">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Travail d'équipe</label>
+                            <input type="range" class="form-range" name="teamwork" min="1" max="5" value="3">
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Objectifs atteints</label>
+                            <textarea class="form-control" name="achievements" rows="3" placeholder="Lister les objectifs atteints"></textarea>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Points d'amélioration</label>
+                            <textarea class="form-control" name="improvements" rows="3" placeholder="Points à améliorer"></textarea>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label">Commentaires</label>
+                            <textarea class="form-control" name="comments" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Prochaine évaluation</label>
+                            <input type="date" class="form-control" name="next_review_date">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveEvaluation()">
+                    <i class="fas fa-save me-2"></i>Enregistrer l'évaluation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Training Modal -->
+<div class="modal fade" id="trainingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Planifier une formation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="trainingForm">
+                    <div class="mb-3">
+                        <label class="form-label">Nom de la formation *</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Type *</label>
+                        <select class="form-select" name="type" required>
+                            <option value="">Sélectionner</option>
+                            <option value="internal">Interne</option>
+                            <option value="external">Externe</option>
+                            <option value="online">En ligne</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Employés participants *</label>
+                        <select class="form-select" name="employees" multiple required>
+                            {% for employee in employees %}
+                            <option value="{{ employee.id }}">{{ employee.full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Date prévue *</label>
+                            <input type="date" class="form-control" name="scheduled_date" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Durée (heures)</label>
+                            <input type="number" class="form-control" name="duration_hours" min="1">
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Formateur/Organisme</label>
+                            <input type="text" class="form-control" name="provider">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Coût</label>
+                            <input type="number" class="form-control" name="cost" step="0.01">
+                        </div>
+                    </div>
+                    <div class="mb-3 mt-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveTraining()">
+                    <i class="fas fa-save me-2"></i>Planifier
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// HR Functions
+function saveEmployee() {
+    const form = document.getElementById('employeeForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    // Format emergency contact
+    data.emergency_contact = {
+        name: data.emergency_name,
+        relation: data.emergency_relation,
+        phone: data.emergency_phone
+    };
+    delete data.emergency_name;
+    delete data.emergency_relation;
+    delete data.emergency_phone;
+    
+    fetch('/hr/employees/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Erreur lors de la création');
+        }
+    });
+}
+
+function viewEmployee(id) {
+    window.location.href = `/hr/employees/${id}`;
+}
+
+function editEmployee(id) {
+    window.location.href = `/hr/employees/${id}/edit`;
+}
+
+function deleteEmployee(id) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cet employé ?')) {
+        fetch(`/hr/employees/${id}/delete`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function showLeaveModal(employeeId) {
+    document.getElementById('leave_employee_id').value = employeeId;
+    const modal = new bootstrap.Modal(document.getElementById('leaveModal'));
+    modal.show();
+}
+
+function saveLeaveRequest() {
+    const form = document.getElementById('leaveForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    fetch('/hr/leaves/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('leaveModal')).hide();
+            alert('Demande de congé soumise');
+            location.reload();
+        }
+    });
+}
+
+function approveLeave(leaveId) {
+    if (confirm('Approuver cette demande de congé ?')) {
+        fetch(`/hr/leaves/${leaveId}/approve`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function rejectLeave(leaveId) {
+    const reason = prompt('Raison du refus :');
+    if (reason) {
+        fetch(`/hr/leaves/${leaveId}/reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({reason: reason})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.revolad();
+            }
+        });
+    }
+}
+
+function showEvaluationModal(employeeId) {
+    document.getElementById('eval_employee_id').value = employeeId;
+    const modal = new bootstrap.Modal(document.getElementById('evaluationModal'));
+    modal.show();
+}
+
+function saveEvaluation() {
+    const form = document.getElementById('evaluationForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    // Format objectives and achievements
+    data.objectives = {
+        quality: data.quality,
+        productivity: data.productivity,
+        initiative: data.initiative,
+        teamwork: data.teamwork
+    };
+    
+    fetch('/hr/evaluations/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('evaluationModal')).hide();
+            alert('Évaluation enregistrée');
+            location.reload();
+        }
+    });
+}
+
+function saveTraining() {
+    const form = document.getElementById('trainingForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    fetch('/hr/trainings/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('trainingModal')).hide();
+            alert('Formation planifiée');
+            location.reload();
+        }
+    });
+}
+
+function exportEmployees() {
+    window.location.href = '/hr/employees/export';
+}
+
+function toggleContractEnd() {
+    const contractType = document.querySelector('[name="contract_type"]').value;
+    const endDateField = document.getElementById('contract_end_date');
+    
+    if (contractType === 'CDD' || contractType === 'Stage' || contractType === 'Alternance') {
+        endDateField.required = true;
+    } else {
+        endDateField.required = false;
+        endDateField.value = '';
+    }
+}
+</script>
+{% endblock %}
