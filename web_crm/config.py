@@ -7,10 +7,10 @@ class Config:
     sudo service postgresql start
     # Configuration PostgreSQL
     DB_HOST = os.environ.get('DB_HOST', 'localhost')
-    DB_PORT = os.environ.get('DB_PORT', 5432)
+    DB_PORT = os.environ.get('DB_PORT', 3306)
     DB_NAME = os.environ.get('DB_NAME', 'crm')
-    DB_USER = os.environ.get('DB_USER', 'postgres')
-    DB_PASSWORD = os.environ.get('DB_PASSWORD', '12345')
+    DB_USER = os.environ.get('DB_USER', 'root')
+    DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
     
     # Configuration des sessions
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)

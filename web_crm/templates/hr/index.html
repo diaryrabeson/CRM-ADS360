@@ -1,3 +1,4 @@
+
 <!-- ======================================== -->
 <!-- TEMPLATES/HR/INDEX.HTML - Gestion RH -->
 <!-- ======================================== -->
@@ -17,6 +18,11 @@
         </nav>
     </div>
     <div>
+        <button class="btn btn-light me-2" onclick="openPositionsListModal()">
+            <i class="fas fa-briefcase me-2"></i>Poste
+        </button>
+
+
         <button class="btn btn-light me-2" onclick="window.location.href='{{ url_for('hr.attendance') }}'">
             <i class="fas fa-clock me-2"></i>Présences
         </button>
@@ -24,6 +30,7 @@
             <i class="fas fa-user-plus me-2"></i>Nouvel employé
         </button>
     </div>
+
 </div>
 
 <!-- Statistics -->
@@ -67,140 +74,239 @@
 </div>
 
 <!-- Quick Actions -->
-<div class="row mb-4">
-    <div class="col-md-6">
+<ul class="nav nav-tabs mb-3" id="mainTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="employees-tab" data-bs-toggle="tab" data-bs-target="#employees"
+            type="button" role="tab">
+            Employés
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="departments-tab" data-bs-toggle="tab" data-bs-target="#departments" type="button"
+            role="tab">
+            Départements
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="positions-tab" data-bs-toggle="tab" data-bs-target="#positions" type="button"
+            role="tab">
+            Postes
+        </button>
+    </li>
+</ul>
+
+
+<div class="tab-content">
+    <!-- Onglet Employés -->
+    <div class="tab-pane fade show active" id="employees" role="tabpanel">
         <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">Congés en attente</h5>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-users me-2"></i>Gestion des Employés
+                </h5>
+                <!-- Bouton Nouveau employé -->
+                <button class="btn btn-primary btn-sm me-2" data-bs-toggle="modal" data-bs-target="#employeeFormModal"
+                    onclick="openCreateEmployeeForm()">
+                    <i class="fas fa-plus me-2"></i>Nouveau
+                </button>
             </div>
-            <div class="card-body">
-                {% for leave in pending_leaves %}
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div>
-                        <strong>{{ leave.employee_name }}</strong><br>
-                        <small class="text-muted">
-                            {{ leave.type }} - {{ leave.start_date.strftime('%d/%m/%Y') }} au {{ leave.end_date.strftime('%d/%m/%Y') }}
-                        </small>
-                    </div>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-success" onclick="approveLeave({{ leave.id }})">
-                            <i class="fas fa-check"></i>
-                        </button>
-                        <button class="btn btn-danger" onclick="rejectLeave({{ leave.id }})">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-                {% endfor %}
-                {% if not pending_leaves %}
-                <p class="text-muted mb-0">Aucune demande en attente</p>
-                {% endif %}
-            </div>
-    </div>
     
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">Anniversaires d'embauche ce mois</h5>
-            </div>
             <div class="card-body">
-                {% for birthday in birthdays %}
-                <div class="d-flex align-items-center mb-3">
-                    <div class="avatar avatar-sm me-3">
-                        <i class="fas fa-birthday-cake"></i>
+                <!-- Barre de recherche + refresh -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="searchEmployee"
+                                placeholder="Rechercher un employé...">
+                        </div>
                     </div>
-                    <div>
-                        <strong>{{ birthday.name }}</strong><br>
-                        <small class="text-muted">
-                            {{ birthday.hire_date.strftime('%d/%m/%Y') }} - {{ birthday.years }} ans dans l'entreprise
-                        </small>
+                    <div class="col-md-6 text-end">
+                        <button class="btn btn-outline-secondary btn-sm me-2" onclick="loadEmployees()">
+                            <i class="fas fa-sync-alt me-1"></i>Actualiser
+                        </button>
+                        <span class="badge bg-info fs-6" id="employeeCount">0 employé(s)</span>
                     </div>
                 </div>
-                {% endfor %}
-                {% if not birthdays %}
-                <p class="text-muted mb-0">Aucun anniversaire ce mois</p>
-                {% endif %}
+    
+                <!-- Tableau -->
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Employé</th>
+                                <th>Poste</th>
+                                <th>Département</th>
+                                <th>Solde congé</th>
+                                <th>Date embauche</th>
+                                <th>Photos</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeesTableBody">
+                            <tr id="loadingRow">
+                                <td colspan="7" class="text-center py-4">
+                                    <div class="spinner-border spinner-border-sm me-2"></div>
+                                    Chargement des employés...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+    
+                <!-- Message si vide -->
+                <div id="noEmployeesMessage" class="text-center py-4" style="display:none;">
+                    <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Aucun employé trouvé</h5>
+                    <p class="text-muted">Commencez par créer votre premier employé.</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#employeeFormModal"
+                        onclick="openCreateEmployeeForm()">
+                        <i class="fas fa-plus me-2"></i>Créer le premier employé
+                    </button>
+                </div>
             </div>
         </div>
     </div>
+    
+
+    <!-- Onglet Départements -->
+    <div class="tab-pane fade" id="departments" role="tabpanel">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-building me-2"></i>Gestion des Départements
+                </h5>
+                <!-- Bouton qui ouvre directement ton modal -->
+                <button class="btn btn-primary btn-sm me-2" data-bs-toggle="modal" data-bs-target="#departmentFormModal"
+                    onclick="openCreateDepartmentForm()">
+                    <i class="fas fa-plus me-2"></i>Nouveau
+                </button>
+            </div>
+
+            <div class="card-body">
+                <!-- Barre de recherche + refresh -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="searchDepartment"
+                                placeholder="Rechercher un département...">
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <button class="btn btn-outline-secondary btn-sm me-2" onclick="loadDepartments()">
+                            <i class="fas fa-sync-alt me-1"></i>Actualiser
+                        </button>
+                        <span class="badge bg-info fs-6" id="departmentCount">0 département(s)</span>
+                    </div>
+                </div>
+
+                <!-- Tableau -->
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Nom du département</th>
+                                <th>Date de création</th>
+                                <th>Dernière modif.</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="departmentsTableBody">
+                            <tr id="loadingRow">
+                                <td colspan="4" class="text-center py-4">
+                                    <div class="spinner-border spinner-border-sm me-2"></div>
+                                    Chargement des départements...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Message si vide -->
+                <div id="noDepartmentsMessage" class="text-center py-4" style="display:none;">
+                    <i class="fas fa-building fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Aucun département trouvé</h5>
+                    <p class="text-muted">Commencez par créer votre premier département.</p>
+                    <!-- Ce bouton ouvre aussi ton modal -->
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#departmentFormModal"
+                        onclick="openCreateDepartmentForm()">
+                        <i class="fas fa-plus me-2"></i>Créer le premier département
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onglet Postes -->
+    <div class="tab-pane fade" id="positions" role="tabpanel">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-briefcase me-2"></i>Gestion des Postes
+                </h5>
+                <button type="button" class="btn btn-primary btn-sm" onclick="openCreatePositionModal()">
+                    <i class="fas fa-plus me-2"></i>Nouveau Poste
+                </button>
+            </div>
+
+            <div class="card-body">
+                <!-- Barre de recherche + refresh -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="searchPosition"
+                                placeholder="Rechercher un poste...">
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <button class="btn btn-outline-secondary btn-sm me-2" onclick="loadPositions()">
+                            <i class="fas fa-sync-alt me-1"></i>Actualiser
+                        </button>
+                        <span class="badge bg-info fs-6" id="positionCount">0 poste(s)</span>
+                    </div>
+                </div>
+
+                <!-- Tableau des postes -->
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Nom du poste</th>
+                                <th style="width: 180px;">Date de création</th>
+                                <th style="width: 180px;">Dernière modif.</th>
+                                <th style="width: 120px;" class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positionsTableBody">
+                            <tr id="loadingRow">
+                                <td colspan="4" class="text-center py-4">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                    Chargement des postes...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Message si aucun poste -->
+                <div id="noPositionsMessage" class="text-center py-4" style="display: none;">
+                    <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Aucun poste trouvé</h5>
+                    <p class="text-muted">Commencez par créer votre premier poste.</p>
+                    <button type="button" class="btn btn-primary" onclick="openCreatePositionModal()">
+                        <i class="fas fa-plus me-2"></i>Créer le premier poste
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <!-- Employees Table -->
-<div class="card">
-    <div class="card-header">
-        <div class="d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Liste des employés</h5>
-            <div>
-                <button class="btn btn-sm btn-light" onclick="exportEmployees()">
-                    <i class="fas fa-download me-2"></i>Exporter
-                </button>
-            </div>
-        </div>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th>Employé</th>
-                        <th>Poste</th>
-                        <th>Département</th>
-                        <th>Type contrat</th>
-                        <th>Date embauche</th>
-                        <th>Statut</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for employee in employees %}
-                    <tr onclick="viewEmployee({{ employee.id }})" style="cursor: pointer;">
-                        <td>
-                            <div class="d-flex align-items-center">
-                                <div class="avatar avatar-sm me-3">
-                                    {{ employee.first_name[0] }}{{ employee.last_name[0] }}
-                                </div>
-                                <div>
-                                    <strong>{{ employee.full_name }}</strong><br>
-                                    <small class="text-muted">{{ employee.employee_code }}</small>
-                                </div>
-                            </div>
-                        </td>
-                        <td>{{ employee.position }}</td>
-                        <td>{{ employee.department }}</td>
-                        <td>
-                            <span class="badge badge-primary">{{ employee.contract_type }}</span>
-                        </td>
-                        <td>{{ employee.hire_date.strftime('%d/%m/%Y') }}</td>
-                        <td>
-                            {% if employee.contract_end_date and employee.contract_end_date < today %}
-                                <span class="badge badge-danger">Terminé</span>
-                            {% else %}
-                                <span class="badge badge-success">Actif</span>
-                            {% endif %}
-                        </td>
-                        <td onclick="event.stopPropagation();">
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-light" onclick="editEmployee({{ employee.id }})" title="Modifier">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-light" onclick="showLeaveModal({{ employee.id }})" title="Congé">
-                                    <i class="fas fa-plane"></i>
-                                </button>
-                                <button class="btn btn-light" onclick="showEvaluationModal({{ employee.id }})" title="Évaluation">
-                                    <i class="fas fa-star"></i>
-                                </button>
-                                <button class="btn btn-light text-danger" onclick="deleteEmployee({{ employee.id }})" title="Supprimer">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+
 
 <!-- Employee Modal -->
 <div class="modal fade" id="employeeModal" tabindex="-1">
@@ -211,139 +317,444 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="employeeForm">
+                <form id="employeeForm" enctype="multipart/form-data">
                     <div class="row g-3">
                         <!-- Informations personnelles -->
                         <div class="col-12">
-                            <h6 class="text-primary mb-3">Informations personnelles</h6>
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-user me-2"></i>Informations personnelles
+                            </h6>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Code employé *</label>
-                            <input type="text" class="form-control" name="employee_code" required>
+                            <label class="form-label">Matricule *</label>
+                            <input type="text" class="form-control" name="matricule" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Prénom *</label>
-                            <input type="text" class="form-control" name="first_name" required>
+                            <input type="text" class="form-control" name="firstname" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Nom *</label>
-                            <input type="text" class="form-control" name="last_name" required>
+                            <input type="text" class="form-control" name="lastname" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Email *</label>
                             <input type="email" class="form-control" name="email" required>
                         </div>
+
+                        <!-- CHAMP AJOUTÉ : CIN -->
+                        <div class="col-md-3">
+                            <label class="form-label">CIN/Numéro national *</label>
+                            <input type="text" class="form-control" name="national_id" required>
+                            <div class="form-text">Numéro d'identité nationale (unique)</div>
+                        </div>
+                        <!-- CHAMP MODIFIÉ : contact au lieu de phone -->
                         <div class="col-md-3">
                             <label class="form-label">Téléphone *</label>
-                            <input type="tel" class="form-control" name="phone" required>
+                            <input type="tel" class="form-control" name="contact" required>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Date de naissance</label>
                             <input type="date" class="form-control" name="birth_date">
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Adresse</label>
-                            <textarea class="form-control" name="address" rows="1"></textarea>
+                        
+                        <!-- CHAMP MODIFIÉ : Photos multiples -->
+                        <div class="col-md-3">
+                            <label class="form-label">Photos *</label>
+                            <input type="file" class="form-control" name="photos" accept="image/*" multiple required id="photoInput">
+                            <div class="form-text">JPG, PNG, GIF max 5MB chacun. La première sera la photo principale.</div>
                         </div>
                         
+                        <div class="col-md-12">
+                            <label class="form-label">Adresse</label>
+                            <textarea class="form-control" name="address" rows="2"></textarea>
+                        </div>
+
+                        <!-- Prévisualisation des photos -->
+                        <div class="col-12">
+                            <div id="photoPreview" class="d-none">
+                                <label class="form-label">Aperçu des photos :</label>
+                                <div id="photoContainer" class="d-flex flex-wrap gap-2 mt-2">
+                                    <!-- Les prévisualisations apparaîtront ici -->
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Informations professionnelles -->
                         <div class="col-12 mt-4">
-                            <h6 class="text-primary mb-3">Informations professionnelles</h6>
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-briefcase me-2"></i>Informations professionnelles
+                            </h6>
                         </div>
+                        
                         <div class="col-md-4">
                             <label class="form-label">Département *</label>
-                            <select class="form-select" name="department" required>
-                                <option value="">Sélectionner</option>
-                                <option value="Direction">Direction</option>
-                                <option value="Commercial">Commercial</option>
-                                <option value="Marketing">Marketing</option>
-                                <option value="Technique">Technique</option>
-                                <option value="Finance">Finance</option>
-                                <option value="RH">Ressources Humaines</option>
-                                <option value="Logistique">Logistique</option>
-                                <option value="IT">Informatique</option>
+                            <select class="form-select" name="department_id" id="departmentSelect" required>
+                                <option value="">Sélectionner un département</option>
+                                <!-- Options seront chargées dynamiquement -->
                             </select>
                         </div>
+
                         <div class="col-md-4">
                             <label class="form-label">Poste *</label>
-                            <input type="text" class="form-control" name="position" required>
+                            <select class="form-select" name="position_id" id="positionSelect" required>
+                                <option value="">Sélectionner un poste</option>
+                                <!-- Options seront chargées dynamiquement -->
+                            </select>
                         </div>
+                        
                         <div class="col-md-4">
                             <label class="form-label">Date d'embauche *</label>
                             <input type="date" class="form-control" name="hire_date" required>
                         </div>
                         
-                        <!-- Contrat -->
-                        <div class="col-12 mt-4">
-                            <h6 class="text-primary mb-3">Informations contractuelles</h6>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Type de contrat *</label>
-                            <select class="form-select" name="contract_type" required onchange="toggleContractEnd()">
-                                <option value="">Sélectionner</option>
-                                <option value="CDI">CDI</option>
-                                <option value="CDD">CDD</option>
-                                <option value="Stage">Stage</option>
-                                <option value="Alternance">Alternance</option>
-                                <option value="Freelance">Freelance</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Date fin de contrat</label>
-                            <input type="date" class="form-control" name="contract_end_date" id="contract_end_date">
-                        </div>
-                        <div class="col-md-3">
+                        <div class="col-md-6">
                             <label class="form-label">Salaire mensuel</label>
-                            <input type="number" class="form-control" name="salary" step="100">
+                            <input type="number" class="form-control" name="salary" step="100" min="0">
+                            <div class="form-text">Montant en devise locale</div>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Rôle système</label>
-                            <select class="form-select" name="role_id">
-                                <option value="">Aucun accès système</option>
-                                {% for role in roles %}
-                                <option value="{{ role.id }}">{{ role.name }}</option>
-                                {% endfor %}
-                            </select>
+                        <div class="col-md-6">
+                            <!-- Espace pour équilibrer la mise en page -->
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Les informations seront enregistrées dans la table informations
+                            </div>
                         </div>
-                        
-                        <!-- Contact d'urgence -->
+
+                        <!-- SECTION AJOUTÉE : Gestion des congés -->
                         <div class="col-12 mt-4">
-                            <h6 class="text-primary mb-3">Contact d'urgence</h6>
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-calendar-alt me-2"></i>Gestion des congés
+                            </h6>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Nom du contact</label>
-                            <input type="text" class="form-control" name="emergency_name">
+                            <label class="form-label">Solde de congés initial</label>
+                            <input type="number" class="form-control" name="leave_balance" value="0" min="0" max="365">
+                            <div class="form-text">Nombre de jours de congé disponibles</div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Relation</label>
-                            <input type="text" class="form-control" name="emergency_relation">
+                        <div class="col-md-8">
+                            <div class="alert alert-info mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Le solde sera automatiquement calculé selon l'ancienneté et les règles d'entreprise
+                            </div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Téléphone</label>
-                            <input type="tel" class="form-control" name="emergency_phone">
+
+                        <!-- Options système -->
+                        <div class="col-12 mt-4">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-cog me-2"></i>Accès système
+                            </h6>
                         </div>
-                        
-                        <!-- Options -->
-                        <div class="col-12 mt-3">
+                        <div class="col-12">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="create_user_account" id="createAccount">
                                 <label class="form-check-label" for="createAccount">
-                                    Créer un compte utilisateur pour cet employé
+                                    <i class="fas fa-user-plus me-2"></i>Créer un compte utilisateur pour cet employé
                                 </label>
+                                <div class="form-text">Si coché, un compte sera créé automatiquement avec l'email comme identifiant</div>
                             </div>
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
-                <button type="button" class="btn btn-primary" onclick="saveEmployee()">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Annuler
+                </button>
+                <button type="button" class="btn btn-primary" onclick="saveEmployee()" id="saveBtn">
                     <i class="fas fa-save me-2"></i>Enregistrer
                 </button>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Script pour la gestion des photos et du formulaire -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Prévisualisation des photos
+document.getElementById('photoInput').addEventListener('change', function(e) {
+    const preview = document.getElementById('photoPreview');
+    const container = document.getElementById('photoContainer');
+    
+    // Vider le conteneur
+    container.innerHTML = '';
+    
+    if (e.target.files.length > 0) {
+        preview.classList.remove('d-none');
+        
+        Array.from(e.target.files).forEach((file, index) => {
+            // Vérifier la taille du fichier (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                alert(`Le fichier ${file.name} est trop volumineux (max 5MB)`);
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                // Créer le conteneur de l'image
+                const imageContainer = document.createElement('div');
+                imageContainer.className = 'position-relative';
+                imageContainer.style.cssText = 'border: 2px solid #dee2e6; border-radius: 8px; padding: 5px; background: white;';
+                
+                // Créer l'image
+                const img = document.createElement('img');
+                img.src = event.target.result;
+                img.style.cssText = 'width: 100px; height: 100px; object-fit: cover; border-radius: 5px;';
+                img.alt = file.name;
+                
+                // Créer le nom du fichier
+                const fileName = document.createElement('div');
+                fileName.style.cssText = 'font-size: 0.7em; text-align: center; margin-top: 5px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+                fileName.textContent = file.name;
+                
+                imageContainer.appendChild(img);
+                imageContainer.appendChild(fileName);
+                
+                // Badge pour la photo principale
+                if (index === 0) {
+                    const badge = document.createElement('span');
+                    badge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary';
+                    badge.textContent = 'Principal';
+                    badge.style.fontSize = '0.6em';
+                    imageContainer.appendChild(badge);
+                }
+                
+                // Bouton de suppression
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'position-absolute top-0 end-0 btn btn-danger btn-sm rounded-circle';
+                removeBtn.style.cssText = 'width: 25px; height: 25px; font-size: 0.7em; transform: translate(50%, -50%);';
+                removeBtn.innerHTML = '&times;';
+                removeBtn.onclick = function() {
+                    removePhoto(index);
+                };
+                
+                imageContainer.appendChild(removeBtn);
+                container.appendChild(imageContainer);
+            };
+            reader.readAsDataURL(file);
+        });
+    } else {
+        preview.classList.add('d-none');
+    }
+});
+
+// Fonction pour supprimer une photo
+function removePhoto(indexToRemove) {
+    const input = document.getElementById('photoInput');
+    const dt = new DataTransfer();
+    
+    Array.from(input.files).forEach((file, index) => {
+        if (index !== indexToRemove) {
+            dt.items.add(file);
+        }
+    });
+    
+    input.files = dt.files;
+    
+    // Déclencher l'événement change pour mettre à jour la prévisualisation
+    input.dispatchEvent(new Event('change'));
+}
+
+// Fonction pour sauvegarder l'employé
+// function saveEmployee() {
+//     const form = document.getElementById('employeeForm');
+//     const formData = new FormData(form);
+
+//     fetch('/hr/employees/create', {
+//         method: 'POST',
+//         body: formData
+//     })
+//     .then(res => res.json())
+//     .then(data => {
+//         if (data.success) {
+//             alert(data.message);
+//             location.reload();
+//         } else {
+//             alert(data.message);
+//         }
+//     })
+//     .catch(err => {
+//         console.error(err);
+//         alert('Erreur réseau');
+//     });
+// }
+
+// Réinitialisation du formulaire quand le modal se ferme
+document.getElementById('employeeModal').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('employeeForm').reset();
+    document.getElementById('photoPreview').classList.add('d-none');
+});
+
+// Définir la date d'embauche par défaut à aujourd'hui
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.querySelector('input[name="hire_date"]').value = today;
+});
+</script>
+
+<!-- Style CSS pour améliorer l'apparence -->
+<style>
+.form-label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.text-primary {
+    color: #0d6efd !important;
+}
+
+.form-text {
+    color: #6c757d;
+    font-size: 0.875em;
+}
+
+#photoContainer {
+    min-height: 120px;
+    padding: 10px;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+}
+
+.modal-xl {
+    max-width: 1200px;
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+}
+
+.alert-info {
+    border-left: 4px solid #0dcaf0;
+}
+</style>
+
+<script>
+function populatePositionCombo(selectId) {
+    fetch('/hr/positions/list')
+        .then(res => res.json())
+        .then(data => {
+            const select = document.getElementById(selectId);
+            select.innerHTML = '<option value="">Sélectionner un poste</option>'; // reset
+            data.positions.forEach(pos => {
+                const option = document.createElement('option');
+                option.value = pos.id;
+                option.textContent = pos.name;
+                select.appendChild(option);
+            });
+        })
+        .catch(err => console.error('Erreur lors du chargement des postes:', err));
+}
+
+// Appel au chargement de la page
+document.addEventListener('DOMContentLoaded', () => {
+    populatePositionCombo('positionSelect');
+});
+
+
+// affichage de departement dans un combo
+    function populateDepartmentCombo(selectId) {
+        fetch('/hr/departments/list')
+            .then(res => res.json())
+            .then(data => {
+                const select = document.getElementById(selectId);
+                select.innerHTML = '<option value="">Sélectionner un département</option>'; // reset
+                data.departments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept.id;
+                    option.textContent = dept.name;
+                    select.appendChild(option);
+                });
+            })
+            .catch(err => console.error('Erreur lors du chargement des départements:', err));
+    }
+
+    // Appel au chargement de la page
+    document.addEventListener('DOMContentLoaded', () => {
+        populateDepartmentCombo('departmentSelect'); // id de ton <select>
+    });
+
+    // Validation du CIN (exemple pour format malgache)
+    document.querySelector('input[name="national_id"]').addEventListener('input', function () {
+        const cin = this.value;
+        const feedback = this.nextElementSibling;
+
+        // Exemple de validation simple (à adapter selon vos besoins)
+        if (cin.length > 0 && cin.length < 12) {
+            this.classList.add('is-invalid');
+            feedback.textContent = 'Le CIN doit contenir au moins 12 caractères';
+            feedback.className = 'invalid-feedback';
+        } else {
+            this.classList.remove('is-invalid');
+            feedback.textContent = 'Numéro d\'identité nationale (unique)';
+            feedback.className = 'form-text';
+        }
+    });
+
+    // Auto-génération du matricule (optionnel)
+    document.addEventListener('DOMContentLoaded', function () {
+        const matriculeField = document.querySelector('input[name="matricule"]');
+        const generateBtn = document.createElement('button');
+        generateBtn.type = 'button';
+        generateBtn.className = 'btn btn-outline-secondary btn-sm mt-1';
+        generateBtn.innerHTML = '<i class="fas fa-magic me-1"></i>Auto-générer';
+        generateBtn.onclick = function () {
+            const year = new Date().getFullYear();
+            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            matriculeField.value = `EMP${year}${random}`;
+        };
+        matriculeField.parentElement.appendChild(generateBtn);
+    });
+
+    // Validation du formulaire avant soumission
+    function validateEmployeeForm() {
+        const form = document.getElementById('employeeForm');
+        const requiredFields = form.querySelectorAll('[required]');
+        let isValid = true;
+
+        requiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                field.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+
+        return isValid;
+    }
+
+    // Fonction saveEmployee mise à jour
+    function saveEmployee() {
+        if (!validateEmployeeForm()) {
+            alert('Veuillez remplir tous les champs obligatoires');
+            return;
+        }
+
+        const form = document.getElementById('employeeForm');
+        const formData = new FormData(form);
+
+        fetch('/hr/employees/create', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Employé créé avec succès !');
+                    location.reload();
+                } else {
+                    alert('Erreur : ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Une erreur est survenue');
+            });
+    }
+</script>
 
 <!-- Leave Request Modal -->
 <div class="modal fade" id="leaveModal" tabindex="-1">
@@ -395,350 +806,1217 @@
     </div>
 </div>
 
-<!-- Performance Evaluation Modal -->
-<div class="modal fade" id="evaluationModal" tabindex="-1">
+
+
+
+
+
+<!-- Modal CRÉATION/MODIFICATION d'un département -->
+<div class="modal fade" id="departmentFormModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Évaluation de performance</h5>
+                <h5 class="modal-title" id="departmentFormModalTitle">
+                    <i class="fas fa-building me-2"></i>Nouveau Département
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="evaluationForm">
-                    <input type="hidden" name="employee_id" id="eval_employee_id">
+                <form id="departmentForm">
+                    <!-- ID caché pour modification -->
+                    <input type="hidden" name="department_id" id="department_id">
+
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Période d'évaluation *</label>
-                            <select class="form-select" name="review_period" required>
-                                <option value="">Sélectionner</option>
-                                <option value="Q1 2025">Q1 2025</option>
-                                <option value="Q2 2025">Q2 2025</option>
-                                <option value="Q3 2025">Q3 2025</option>
-                                <option value="Q4 2025">Q4 2025</option>
-                                <option value="Annuelle 2025">Annuelle 2025</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Note globale *</label>
-                            <select class="form-select" name="overall_rating" required>
-                                <option value="">Sélectionner</option>
-                                <option value="5">Excellent (5/5)</option>
-                                <option value="4">Très bon (4/5)</option>
-                                <option value="3">Satisfaisant (3/5)</option>
-                                <option value="2">À améliorer (2/5)</option>
-                                <option value="1">Insuffisant (1/5)</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Critères d'évaluation -->
+                        <!-- Nom du département -->
                         <div class="col-12">
-                            <h6 class="text-primary">Critères d'évaluation</h6>
+                            <label class="form-label">Nom du département *</label>
+                            <input type="text" class="form-control form-control-lg" name="name" id="department_name"
+                                required maxlength="100" placeholder="Ex: Ressources Humaines, Commercial, IT...">
+                            <div class="form-text">Maximum 100 caractères</div>
+                            <div class="invalid-feedback">
+                                Le nom du département est obligatoire
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Qualité du travail</label>
-                            <input type="range" class="form-range" name="quality" min="1" max="5" value="3">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Productivité</label>
-                            <input type="range" class="form-range" name="productivity" min="1" max="5" value="3">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Initiative</label>
-                            <input type="range" class="form-range" name="initiative" min="1" max="5" value="3">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Travail d'équipe</label>
-                            <input type="range" class="form-range" name="teamwork" min="1" max="5" value="3">
-                        </div>
-                        
-                        <div class="col-12">
-                            <label class="form-label">Objectifs atteints</label>
-                            <textarea class="form-control" name="achievements" rows="3" placeholder="Lister les objectifs atteints"></textarea>
-                        </div>
-                        
-                        <div class="col-12">
-                            <label class="form-label">Points d'amélioration</label>
-                            <textarea class="form-control" name="improvements" rows="3" placeholder="Points à améliorer"></textarea>
-                        </div>
-                        
-                        <div class="col-12">
-                            <label class="form-label">Commentaires</label>
-                            <textarea class="form-control" name="comments" rows="3"></textarea>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label">Prochaine évaluation</label>
-                            <input type="date" class="form-control" name="next_review_date">
+
+                        <!-- Infos système (visible en modification) -->
+                        <div class="col-12" id="systemInfoSection" style="display: none;">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title text-primary">
+                                        <i class="fas fa-info-circle me-2"></i>Informations système
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <small class="text-muted">Date de création :</small><br>
+                                            <span id="display_created_at">-</span>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <small class="text-muted">Dernière modification :</small><br>
+                                            <span id="display_updated_at">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
-                <button type="button" class="btn btn-primary" onclick="saveEvaluation()">
-                    <i class="fas fa-save me-2"></i>Enregistrer l'évaluation
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Annuler
+                </button>
+                <button type="button" class="btn btn-primary" onclick="saveDepartment()">
+                    <i class="fas fa-save me-2"></i>
+                    <span id="saveButtonText">Enregistrer</span>
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Training Modal -->
-<div class="modal fade" id="trainingModal" tabindex="-1">
+<!-- Modal de Confirmation de Suppression -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Planifier une formation</h5>
+                <h5 class="modal-title text-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirmer la suppression
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="trainingForm">
-                    <div class="mb-3">
-                        <label class="form-label">Nom de la formation *</label>
-                        <input type="text" class="form-control" name="name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Type *</label>
-                        <select class="form-select" name="type" required>
-                            <option value="">Sélectionner</option>
-                            <option value="internal">Interne</option>
-                            <option value="external">Externe</option>
-                            <option value="online">En ligne</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Employés participants *</label>
-                        <select class="form-select" name="employees" multiple required>
-                            {% for employee in employees %}
-                            <option value="{{ employee.id }}">{{ employee.full_name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <label class="form-label">Date prévue *</label>
-                            <input type="date" class="form-control" name="scheduled_date" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Durée (heures)</label>
-                            <input type="number" class="form-control" name="duration_hours" min="1">
-                        </div>
-                    </div>
-                    <div class="row mt-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Formateur/Organisme</label>
-                            <input type="text" class="form-control" name="provider">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Coût</label>
-                            <input type="number" class="form-control" name="cost" step="0.01">
-                        </div>
-                    </div>
-                    <div class="mb-3 mt-3">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" name="description" rows="3"></textarea>
-                    </div>
-                </form>
+                <div class="text-center mb-3">
+                    <i class="fas fa-trash-alt fa-3x text-danger mb-3"></i>
+                </div>
+                <p class="text-center">
+                    Êtes-vous sûr de vouloir supprimer le département <strong id="departmentToDelete">""</strong> ?
+                </p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Attention :</strong> Cette action est irréversible et peut affecter les employés liés à ce
+                    département.
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
-                <button type="button" class="btn btn-primary" onclick="saveTraining()">
-                    <i class="fas fa-save me-2"></i>Planifier
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Annuler
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash me-2"></i>Supprimer définitivement
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal Liste des postes -->
+<div class="modal fade" id="positionsListModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-briefcase me-2"></i>Gestion des Postes
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Header avec bouton d'ajout -->
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="text-primary mb-0">Liste des postes</h6>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="openCreatePositionModal()">
+                                <i class="fas fa-plus me-2"></i>Nouveau Poste
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barre de recherche -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="searchPosition"
+                                placeholder="Rechercher un poste...">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-end">
+                            <button class="btn btn-outline-secondary btn-sm me-2" onclick="loadPositions()">
+                                <i class="fas fa-sync-alt me-1"></i>Actualiser
+                            </button>
+                            <span class="badge bg-info fs-6" id="positionCount">0 poste(s)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tableau des postes -->
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width: 80px;">ID</th>
+                                <th>Nom du poste</th>
+                                <th style="width: 180px;">Date de création</th>
+                                <th style="width: 180px;">Dernière modif.</th>
+                                <th style="width: 120px;" class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positionsTableBody">
+                            <tr id="loadingRow">
+                                <td colspan="5" class="text-center py-4">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                    Chargement des postes...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Message si aucun poste -->
+                <div id="noPositionsMessage" class="text-center py-4" style="display: none;">
+                    <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Aucun poste trouvé</h5>
+                    <p class="text-muted">Commencez par créer votre premier poste.</p>
+                    <button type="button" class="btn btn-primary" onclick="openCreatePositionModal()">
+                        <i class="fas fa-plus me-2"></i>Créer le premier poste
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Fermer
                 </button>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Modal CRÉATION/MODIFICATION d'un poste -->
+<div class="modal fade" id="positionFormModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="positionFormModalTitle">
+                    <i class="fas fa-briefcase me-2"></i>Nouveau Poste
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="positionForm">
+                    <input type="hidden" name="position_id" id="position_id">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Nom du poste *</label>
+                            <input type="text" class="form-control form-control-lg" name="name" id="position_name"
+                                required maxlength="100" placeholder="Ex: Manager, Développeur, Commercial...">
+                            <div class="form-text">Maximum 100 caractères</div>
+                            <div class="invalid-feedback">
+                                Le nom du poste est obligatoire
+                            </div>
+                        </div>
+
+                        <div class="col-12" id="systemInfoPosition" style="display: none;">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title text-primary"><i
+                                            class="fas fa-info-circle me-2"></i>Informations système</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <small class="text-muted">Date de création :</small><br>
+                                            <span id="display_created_at_position">-</span>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <small class="text-muted">Dernière modification :</small><br>
+                                            <span id="display_updated_at_position">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Annuler
+                </button>
+                <button type="button" class="btn btn-primary" onclick="savePosition()">
+                    <i class="fas fa-save me-2"></i>
+                    <span id="saveButtonTextPosition">Enregistrer</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation de suppression -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>Confirmer la suppression</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer le poste : <strong id="positionToDelete"></strong> ?</p>
+                <p class="text-danger small">Cette action est irréversible.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Annuler
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash me-2"></i>Supprimer définitivement
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript pour gérer les postes -->
 <script>
-// HR Functions
-function saveEmployee() {
-    const form = document.getElementById('employeeForm');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-    
-    // Format emergency contact
-    data.emergency_contact = {
-        name: data.emergency_name,
-        relation: data.emergency_relation,
-        phone: data.emergency_phone
-    };
-    delete data.emergency_name;
-    delete data.emergency_relation;
-    delete data.emergency_phone;
-    
-    fetch('/hr/employees/create', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
+    let currentPositionId = null;
+    let positions = [];
+
+    // Ouvrir le modal de création d'un nouveau poste
+    function openCreatePositionModal() {
+        openPositionFormModal();
+    }
+
+    // Ouvrir le modal formulaire (création ou modification)
+    function openPositionFormModal(positionData = null) {
+        const listModal = bootstrap.Modal.getInstance(document.getElementById('positionsListModal'));
+        if (listModal) listModal.hide();
+
+        setTimeout(() => {
+            const modal = document.getElementById('positionFormModal');
+            const title = document.getElementById('positionFormModalTitle');
+            const form = document.getElementById('positionForm');
+            const saveButton = document.getElementById('saveButtonTextPosition');
+            const systemInfo = document.getElementById('systemInfoPosition');
+
+            form.reset();
+            form.classList.remove('was-validated');
+            document.getElementById('position_id').value = '';
+            document.getElementById('position_name').classList.remove('is-invalid');
+            currentPositionId = null;
+
+            if (positionData) {
+                title.innerHTML = '<i class="fas fa-edit me-2"></i>Modifier le poste';
+                saveButton.textContent = 'Mettre à jour';
+                document.getElementById('position_id').value = positionData.id;
+                document.getElementById('position_name').value = positionData.name;
+                currentPositionId = positionData.id;
+
+                systemInfo.style.display = 'block';
+                document.getElementById('display_created_at_position').textContent = formatDate(positionData.created_at);
+                document.getElementById('display_updated_at_position').textContent = formatDate(positionData.updated_at);
+            } else {
+                title.innerHTML = '<i class="fas fa-briefcase me-2"></i>Nouveau Poste';
+                saveButton.textContent = 'Enregistrer';
+                systemInfo.style.display = 'none';
+            }
+
+            const formModal = new bootstrap.Modal(modal);
+            formModal.show();
+
+            modal.addEventListener('shown.bs.modal', function () {
+                document.getElementById('position_name').focus();
+            }, { once: true });
+        }, 300);
+    }
+
+    // Sauvegarder un poste
+    function savePosition() {
+        const form = document.getElementById('positionForm');
+        const nameField = document.getElementById('position_name');
+
+        if (!nameField.value.trim()) {
+            nameField.classList.add('is-invalid');
+            nameField.focus();
+            return;
         } else {
-            alert(data.error || 'Erreur lors de la création');
+            nameField.classList.remove('is-invalid');
         }
-    });
-}
 
-function viewEmployee(id) {
-    window.location.href = `/hr/employees/${id}`;
-}
+        const formData = new FormData(form);
+        const url = currentPositionId ? `/hr/positions/update/${currentPositionId}` : '/hr/positions/create';
 
-function editEmployee(id) {
-    window.location.href = `/hr/employees/${id}/edit`;
-}
+        const saveButton = document.querySelector('#positionFormModal .btn-primary');
+        const originalText = saveButton.innerHTML;
+        saveButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Enregistrement...';
+        saveButton.disabled = true;
 
-function deleteEmployee(id) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cet employé ?')) {
-        fetch(`/hr/employees/${id}/delete`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
+        fetch(url, { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const formModal = bootstrap.Modal.getInstance(document.getElementById('positionFormModal'));
+                    formModal.hide();
+                    setTimeout(() => { openPositionsListModal(); }, 300);
+                    showAlert(`Poste ${currentPositionId ? 'mis à jour' : 'créé'} avec succès !`, 'success');
+                } else showAlert('Erreur : ' + data.message, 'error');
+            })
+            .catch(err => { console.error(err); showAlert('Erreur de connexion', 'error'); })
+            .finally(() => {
+                saveButton.innerHTML = originalText;
+                saveButton.disabled = false;
+            });
+    }
+
+    // Modifier un poste
+    function editPosition(id) {
+        const position = positions.find(p => p.id === id);
+        if (position) openPositionFormModal(position);
+        else {
+            fetch(`/hr/positions/${id}`).then(res => res.json()).then(data => {
+                if (data.success) openPositionFormModal(data.position);
+                else showAlert('Erreur lors du chargement du poste', 'error');
+            }).catch(err => { console.error(err); showAlert('Erreur de connexion', 'error'); });
+        }
+    }
+
+    // Supprimer un poste
+    function deletePosition(id, name) {
+        currentPositionId = id;
+        document.getElementById('positionToDelete').textContent = name;
+
+        const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        modal.show();
+
+        document.getElementById('confirmDeleteBtn').onclick = function () {
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Suppression...';
+            this.disabled = true;
+
+            fetch(`/hr/positions/delete/${id}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) showAlert('Poste supprimé avec succès !', 'success');
+                    else showAlert('Erreur : ' + data.message, 'error');
+                    modal.hide();
+                    loadPositions();
+                })
+                .catch(err => { console.error(err); showAlert('Erreur lors de la suppression', 'error'); modal.hide(); })
+                .finally(() => {
+                    this.innerHTML = '<i class="fas fa-trash me-2"></i>Supprimer définitivement';
+                    this.disabled = false;
+                });
+        };
+    }
+
+    // Charger la liste des postes
+    function loadPositions() {
+        const tbody = document.getElementById('positionsTableBody');
+        const loadingRow = document.getElementById('loadingRow');
+        const noDataMessage = document.getElementById('noPositionsMessage');
+        const countBadge = document.getElementById('positionCount');
+
+        if (loadingRow) loadingRow.style.display = 'table-row';
+        noDataMessage.style.display = 'none';
+
+        fetch('/hr/positions/list')
+            .then(res => res.json())
+            .then(data => {
+                tbody.innerHTML = '';
+                positions = data.positions || [];
+
+                if (positions.length === 0) {
+                    noDataMessage.style.display = 'block';
+                    countBadge.textContent = '0 poste';
+                } else {
+                    positions.forEach(p => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                        <td><span class="badge bg-secondary">${p.id}</span></td>
+                        <td><strong>${p.name}</strong></td>
+                        <td><small class="text-muted">${formatDate(p.created_at)}</small></td>
+                        <td><small class="text-muted">${formatDate(p.updated_at)}</small></td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-warning" onclick="editPosition(${p.id})" title="Modifier"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-outline-danger" onclick="deletePosition(${p.id}, '${p.name.replace(/'/g, "\\'")}')" title="Supprimer"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>`;
+                        tbody.appendChild(row);
+                    });
+                    countBadge.textContent = `${positions.length} poste${positions.length > 1 ? 's' : ''}`;
+                }
+            })
+            .catch(err => { console.error(err); tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle me-2"></i>Erreur lors du chargement des postes</td></tr>`; showAlert('Erreur lors du chargement des postes', 'error'); });
+    }
+
+    // Recherche en temps réel
+    document.getElementById('searchPosition').addEventListener('input', function () {
+        const searchTerm = this.value.toLowerCase();
+        const tbody = document.getElementById('positionsTableBody');
+        const rows = tbody.getElementsByTagName('tr');
+        let visibleCount = 0;
+
+        Array.from(rows).forEach(row => {
+            const nameCell = row.cells[1];
+            if (nameCell) {
+                const name = nameCell.textContent.toLowerCase();
+                if (name.includes(searchTerm)) { row.style.display = ''; visibleCount++; }
+                else row.style.display = 'none';
             }
         });
-    }
-}
 
-function showLeaveModal(employeeId) {
-    document.getElementById('leave_employee_id').value = employeeId;
-    const modal = new bootstrap.Modal(document.getElementById('leaveModal'));
-    modal.show();
-}
-
-function saveLeaveRequest() {
-    const form = document.getElementById('leaveForm');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-    
-    fetch('/hr/leaves/create', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            bootstrap.Modal.getInstance(document.getElementById('leaveModal')).hide();
-            alert('Demande de congé soumise');
-            location.reload();
-        }
+        const countBadge = document.getElementById('positionCount');
+        if (searchTerm) countBadge.textContent = `${visibleCount} poste${visibleCount > 1 ? 's' : ''} trouvé${visibleCount > 1 ? 's' : ''}`;
+        else countBadge.textContent = `${positions.length} poste${positions.length > 1 ? 's' : ''}`;
     });
-}
 
-function approveLeave(leaveId) {
-    if (confirm('Approuver cette demande de congé ?')) {
-        fetch(`/hr/leaves/${leaveId}/approve`, {
-            method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            }
+    // Formatage de date
+    function formatDate(dateString) {
+        if (!dateString) return '-';
+        return new Date(dateString).toLocaleString('fr-FR', {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit'
         });
     }
-}
 
-function rejectLeave(leaveId) {
-    const reason = prompt('Raison du refus :');
-    if (reason) {
-        fetch(`/hr/leaves/${leaveId}/reject`, {
+    // Alertes
+    function showAlert(message, type = 'info') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+        alertDiv.style.top = '20px';
+        alertDiv.style.right = '20px';
+        alertDiv.style.zIndex = '9999';
+        alertDiv.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+        document.body.appendChild(alertDiv);
+        setTimeout(() => alertDiv.remove(), 5000);
+    }
+
+    // Auto-focus et validation
+    document.getElementById('position_name').addEventListener('input', function () {
+        if (this.value.trim().length === 0) this.classList.add('is-invalid');
+        else this.classList.remove('is-invalid');
+    });
+
+    // Charger les postes quand le modal liste s'ouvre
+    document.getElementById('positionsListModal').addEventListener('shown.bs.modal', loadPositions);
+
+    // Ouvrir le modal liste
+    function openPositionsListModal() {
+        const listModalEl = document.getElementById('positionsListModal');
+        const listModal = new bootstrap.Modal(listModalEl);
+        listModal.show();
+        loadPositions();
+    }
+
+</script>
+<style>
+    /* Forcer le modal de suppression au-dessus de tous les autres modals */
+    #deleteConfirmModal.modal {
+        z-index: 2000;
+    }
+</style>
+
+
+
+
+<script>
+    function toggleContractEnd() {
+        const contractType = document.querySelector('select[name="contract_type"]').value;
+        const contractEndField = document.getElementById('contract_end_date');
+
+        if (contractType === 'CDI') {
+            contractEndField.disabled = true;
+            contractEndField.value = '';
+            contractEndField.parentElement.style.opacity = '0.5';
+        } else {
+            contractEndField.disabled = false;
+            contractEndField.parentElement.style.opacity = '1';
+            if (contractType === 'CDD' || contractType === 'Stage') {
+                contractEndField.required = true;
+            }
+        }
+    }
+
+    // Validation du CIN (exemple pour format malgache)
+    document.querySelector('input[name="national_id"]').addEventListener('input', function () {
+        const cin = this.value;
+        const feedback = this.nextElementSibling;
+
+        // Exemple de validation simple (à adapter selon vos besoins)
+        if (cin.length > 0 && cin.length < 12) {
+            this.classList.add('is-invalid');
+            feedback.textContent = 'Le CIN doit contenir au moins 12 caractères';
+            feedback.className = 'invalid-feedback';
+        } else {
+            this.classList.remove('is-invalid');
+            feedback.textContent = 'Numéro d\'identité nationale (unique)';
+            feedback.className = 'form-text';
+        }
+    });
+</script>
+<!-- <script>
+    // HR Functions
+    function saveEmployee() {
+        const form = document.getElementById('employeeForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+
+        // Format emergency contact
+        data.emergency_contact = {
+            name: data.emergency_name,
+            relation: data.emergency_relation,
+            phone: data.emergency_phone
+        };
+        delete data.emergency_name;
+        delete data.emergency_relation;
+        delete data.emergency_phone;
+
+        fetch('/employees/create', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({reason: reason})
+            body: JSON.stringify(data)
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.revolad();
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.error || 'Erreur lors de la création');
+                }
+            });
+    }
+
+    function viewEmployee(id) {
+        window.location.href = `/hr/employees/${id}`;
+    }
+
+    function editEmployee(id) {
+        window.location.href = `/hr/employees/${id}/edit`;
+    }
+
+    function deleteEmployee(id) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cet employé ?')) {
+            fetch(`/hr/employees/${id}/delete`, {
+                method: 'DELETE'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    }
+                });
+        }
+    }
+
+    function showLeaveModal(employeeId) {
+        document.getElementById('leave_employee_id').value = employeeId;
+        const modal = new bootstrap.Modal(document.getElementById('leaveModal'));
+        modal.show();
+    }
+
+    function saveLeaveRequest() {
+        const form = document.getElementById('leaveForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+
+        fetch('/hr/leaves/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('leaveModal')).hide();
+                    alert('Demande de congé soumise');
+                    location.reload();
+                }
+            });
+    }
+
+    function approveLeave(leaveId) {
+        if (confirm('Approuver cette demande de congé ?')) {
+            fetch(`/hr/leaves/${leaveId}/approve`, {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    }
+                });
+        }
+    }
+
+    function rejectLeave(leaveId) {
+        const reason = prompt('Raison du refus :');
+        if (reason) {
+            fetch(`/hr/leaves/${leaveId}/reject`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ reason: reason })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.revolad();
+                    }
+                });
+        }
+    }
+
+    function showEvaluationModal(employeeId) {
+        document.getElementById('eval_employee_id').value = employeeId;
+        const modal = new bootstrap.Modal(document.getElementById('evaluationModal'));
+        modal.show();
+    }
+
+    function saveEvaluation() {
+        const form = document.getElementById('evaluationForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+
+        // Format objectives and achievements
+        data.objectives = {
+            quality: data.quality,
+            productivity: data.productivity,
+            initiative: data.initiative,
+            teamwork: data.teamwork
+        };
+
+        fetch('/hr/evaluations/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('evaluationModal')).hide();
+                    alert('Évaluation enregistrée');
+                    location.reload();
+                }
+            });
+    }
+
+    function saveTraining() {
+        const form = document.getElementById('trainingForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+
+        fetch('/hr/trainings/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('trainingModal')).hide();
+                    alert('Formation planifiée');
+                    location.reload();
+                }
+            });
+    }
+
+    function exportEmployees() {
+        window.location.href = '/hr/employees/export';
+    }
+
+    function toggleContractEnd() {
+        const contractType = document.querySelector('[name="contract_type"]').value;
+        const endDateField = document.getElementById('contract_end_date');
+
+        if (contractType === 'CDD' || contractType === 'Stage' || contractType === 'Alternance') {
+            endDateField.required = true;
+        } else {
+            endDateField.required = false;
+            endDateField.value = '';
+        }
+    }
+</script> -->
+
+<!-- =============================================== -->
+<!-- =============================================== -->
+<!-- CODE POUR LES DEPARTEMENT -->
+<!-- =============================================== -->
+<!-- =============================================== -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    let currentDepartmentId = null;
+    let departments = [];
+
+    // Ouvrir le modal de formulaire (création ou modification)
+    function openDepartmentFormModal(departmentData = null) {
+        const modal = document.getElementById('departmentFormModal');
+        const title = document.getElementById('departmentFormModalTitle');
+        const form = document.getElementById('departmentForm');
+        const saveButton = document.getElementById('saveButtonText');
+        const systemInfo = document.getElementById('systemInfoSection');
+
+        // Reset du formulaire
+        form.reset();
+        form.classList.remove('was-validated');
+        document.getElementById('department_id').value = '';
+        document.getElementById('department_name').classList.remove('is-invalid');
+        currentDepartmentId = null;
+
+        if (departmentData) {
+            // Mode modification
+            title.innerHTML = '<i class="fas fa-edit me-2"></i>Modifier le département';
+            saveButton.textContent = 'Mettre à jour';
+            document.getElementById('department_id').value = departmentData.id;
+            document.getElementById('department_name').value = departmentData.name;
+            currentDepartmentId = departmentData.id;
+
+            systemInfo.style.display = 'block';
+            document.getElementById('display_created_at').textContent = formatDate(departmentData.created_at);
+            document.getElementById('display_updated_at').textContent = formatDate(departmentData.updated_at);
+        } else {
+            // Mode création
+            title.innerHTML = '<i class="fas fa-building me-2"></i>Nouveau Département';
+            saveButton.textContent = 'Enregistrer';
+            systemInfo.style.display = 'block';
+        }
+
+        // Ouvrir le modal
+        const formModal = new bootstrap.Modal(modal);
+        formModal.show();
+
+        // Focus sur le champ nom
+        modal.addEventListener('shown.bs.modal', () => {
+            document.getElementById('department_name').focus();
+        }, { once: true });
+    }
+
+    // Ouvrir le formulaire pour créer un département
+    function openCreateDepartmentForm() {
+        openDepartmentFormModal();
+    }
+
+    // Sauvegarder le département
+    function saveDepartment() {
+        const form = document.getElementById('departmentForm');
+        const nameField = document.getElementById('department_name');
+
+        if (!nameField.value.trim()) {
+            nameField.classList.add('is-invalid');
+            nameField.focus();
+            return;
+        } else {
+            nameField.classList.remove('is-invalid');
+        }
+
+        const formData = new FormData(form);
+        const url = currentDepartmentId ? `/hr/departments/update/${currentDepartmentId}` : '/hr/departments/create';
+
+        const saveButton = document.querySelector('#departmentFormModal .btn-primary');
+        const originalText = saveButton.innerHTML;
+        saveButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Enregistrement...';
+        saveButton.disabled = true;
+
+        fetch(url, { method: 'POST', body: formData })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Fermer le formulaire
+                    const formModal = bootstrap.Modal.getInstance(document.getElementById('departmentFormModal'));
+                    formModal.hide();
+
+                    // Recharger la liste sans délai
+                    loadDepartments();
+
+                    showAlert(`Département ${currentDepartmentId ? 'mis à jour' : 'créé'} avec succès !`, 'success');
+                } else {
+                    showAlert('Erreur : ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                showAlert('Une erreur est survenue lors de l\'enregistrement', 'error');
+            })
+            .finally(() => {
+                saveButton.innerHTML = originalText;
+                saveButton.disabled = false;
+            });
+    }
+
+    // Modifier un département
+    function editDepartment(id) {
+        const department = departments.find(d => d.id === id);
+        if (department) {
+            openDepartmentFormModal(department);
+        } else {
+            fetch(`/hr/departments/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        openDepartmentFormModal(data.department);
+                    } else {
+                        showAlert('Erreur lors du chargement du département', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    showAlert('Erreur de connexion', 'error');
+                });
+        }
+    }
+
+    // Supprimer un département
+    function deleteDepartment(id, name) {
+        currentDepartmentId = id;
+        document.getElementById('departmentToDelete').textContent = name;
+
+        const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        modal.show();
+
+        document.getElementById('confirmDeleteBtn').onclick = function () {
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Suppression...';
+            this.disabled = true;
+
+            fetch(`/hr/departments/delete/${id}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('Département supprimé avec succès !', 'success');
+                        loadDepartments();
+                    } else {
+                        showAlert('Erreur : ' + data.message, 'error');
+                    }
+                    modal.hide();
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    showAlert('Erreur lors de la suppression', 'error');
+                    modal.hide();
+                })
+                .finally(() => {
+                    this.innerHTML = '<i class="fas fa-trash me-2"></i>Supprimer définitivement';
+                    this.disabled = false;
+                });
+        };
+    }
+
+    // Charger les départements en temps réel
+    function loadDepartments() {
+        const tbody = document.getElementById('departmentsTableBody');
+        const loadingRow = document.getElementById('loadingRow');
+        const noDataMessage = document.getElementById('noDepartmentsMessage');
+        const countBadge = document.getElementById('departmentCount');
+
+        // Afficher le loader
+        loadingRow.style.display = 'table-row';
+        noDataMessage.style.display = 'none';
+        tbody.innerHTML = '';
+
+        fetch('/hr/departments/list')
+            .then(response => response.json())
+            .then(data => {
+                departments = data.departments || [];
+
+                if (departments.length === 0) {
+                    loadingRow.style.display = 'none';
+                    noDataMessage.style.display = 'block';
+                    countBadge.textContent = '0 département';
+                } else {
+                    let visibleCount = 0;
+                    departments.forEach(dept => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                        <td><strong>${dept.name}</strong></td>
+                        <td><small class="text-muted">${formatDate(dept.created_at)}</small></td>
+                        <td><small class="text-muted">${formatDate(dept.updated_at)}</small></td>
+                        <td class="text-center">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-warning" onclick="editDepartment(${dept.id})" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="deleteDepartment(${dept.id}, '${dept.name.replace(/'/g, "\\'")}')" title="Supprimer">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>`;
+                        tbody.appendChild(row);
+                        visibleCount++;
+                        loadingRow.style.display = 'none'; // enlever le spinner dès la première ligne ajoutée
+                    });
+                    countBadge.textContent = `${visibleCount} département${visibleCount > 1 ? 's' : ''}`;
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center text-danger py-4">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Erreur lors du chargement des départements
+                    </td>
+                </tr>`;
+                showAlert('Erreur lors du chargement des départements', 'error');
+                loadingRow.style.display = 'none';
+            });
+    }
+
+    // Recherche en temps réel
+    document.getElementById('searchDepartment').addEventListener('input', function () {
+        const searchTerm = this.value.toLowerCase();
+        const tbody = document.getElementById('departmentsTableBody');
+        const rows = tbody.getElementsByTagName('tr');
+        let visibleCount = 0;
+
+        Array.from(rows).forEach(row => {
+            const nameCell = row.cells[0];
+            if (nameCell) {
+                const name = nameCell.textContent.toLowerCase();
+                if (name.includes(searchTerm)) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
             }
         });
-    }
-}
 
-function showEvaluationModal(employeeId) {
-    document.getElementById('eval_employee_id').value = employeeId;
-    const modal = new bootstrap.Modal(document.getElementById('evaluationModal'));
-    modal.show();
-}
-
-function saveEvaluation() {
-    const form = document.getElementById('evaluationForm');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-    
-    // Format objectives and achievements
-    data.objectives = {
-        quality: data.quality,
-        productivity: data.productivity,
-        initiative: data.initiative,
-        teamwork: data.teamwork
-    };
-    
-    fetch('/hr/evaluations/create', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            bootstrap.Modal.getInstance(document.getElementById('evaluationModal')).hide();
-            alert('Évaluation enregistrée');
-            location.reload();
+        const countBadge = document.getElementById('departmentCount');
+        if (searchTerm) {
+            countBadge.textContent = `${visibleCount} département${visibleCount > 1 ? 's' : ''} trouvé${visibleCount > 1 ? 's' : ''}`;
+        } else {
+            countBadge.textContent = `${departments.length} département${departments.length > 1 ? 's' : ''}`;
         }
     });
-}
 
-function saveTraining() {
-    const form = document.getElementById('trainingForm');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-    
-    fetch('/hr/trainings/create', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            bootstrap.Modal.getInstance(document.getElementById('trainingModal')).hide();
-            alert('Formation planifiée');
-            location.reload();
+    // Fonction utilitaire pour formater les dates
+    function formatDate(dateString) {
+        if (!dateString) return '-';
+        return new Date(dateString).toLocaleString('fr-FR', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    // Fonction utilitaire pour afficher des alertes
+    function showAlert(message, type = 'info') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+        alertDiv.style.top = '20px';
+        alertDiv.style.right = '20px';
+        alertDiv.style.zIndex = '9999';
+        alertDiv.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+        document.body.appendChild(alertDiv);
+        setTimeout(() => { alertDiv.remove(); }, 5000);
+    }
+
+    // Auto-validation nom
+    document.getElementById('department_name').addEventListener('input', function () {
+        const value = this.value.trim();
+        if (value.length === 0) {
+            this.classList.add('is-invalid');
+        } else {
+            this.classList.remove('is-invalid');
         }
     });
+
+    // Charger les départements au démarrage
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDepartments();
+    });
+
+
+
+    function loadEmployees() {
+    const tbody = document.getElementById('employeesTableBody');
+    const loadingRow = document.getElementById('loadingRow');
+    const noDataMessage = document.getElementById('noEmployeesMessage');
+    const countBadge = document.getElementById('employeeCount');
+
+    if (loadingRow) loadingRow.style.display = 'table-row';
+    noDataMessage.style.display = 'none';
+
+    fetch('/hr/employees/list')
+        .then(res => res.json())
+        .then(data => {
+            tbody.innerHTML = '';
+            const employees = data.employees || [];
+
+            if (employees.length === 0) {
+                noDataMessage.style.display = 'block';
+                countBadge.textContent = '0 employé(s)';
+            } else {
+                employees.forEach(emp => {
+                    const hireDate = emp.hire_date ? new Date(emp.hire_date).toLocaleDateString() : '';
+                    const row = document.createElement('tr');
+                    row.setAttribute('data-employee-id', emp.id);
+                    row.style.cursor = 'pointer';
+                    row.innerHTML = `
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar avatar-sm me-3">
+                                    ${emp.firstname[0] || ''}${emp.lastname[0] || ''}
+                                </div>
+                                <div>
+                                    <strong>${emp.full_name}</strong><br>
+                                    <small class="text-muted">${emp.employee_code || ''}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${emp.position || ''}</td>
+                        <td>${emp.department || ''}</td>
+                        <td>${emp.leave_balance || 0}</td>
+                        <td>${hireDate}</td>
+                        <td><!-- photo si disponible --></td>
+                        <td class="text-center" onclick="event.stopPropagation();">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-light" onclick="editEmployee(${emp.id})" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-light" onclick="showLeaveModal(${emp.id})" title="Congé">
+                                    <i class="fas fa-plane"></i>
+                                </button>
+                                <button class="btn btn-light" onclick="showEvaluationModal(${emp.id})" title="Évaluation">
+                                    <i class="fas fa-star"></i>
+                                </button>
+                                <button class="btn btn-light text-danger" onclick="deleteEmployee(${emp.id})" title="Supprimer">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                countBadge.textContent = `${employees.length} employé${employees.length > 1 ? 's' : ''}`;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle me-2"></i>Erreur lors du chargement des employés</td></tr>`;
+        });
 }
 
-function exportEmployees() {
-    window.location.href = '/hr/employees/export';
+// Charger les employés automatiquement au chargement de la page
+document.addEventListener('DOMContentLoaded', loadEmployees);
+
+
+
+function editEmployee(id) {
+    fetch(`/hr/employees/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert("Erreur : " + data.error);
+                return;
+            }
+
+            const emp = data.employee;
+
+            // Champs de la table employees
+            document.getElementById("employee_id").value = emp.id;
+            document.getElementById("matricule").value = emp.matricule || "";
+            document.getElementById("lastname").value = emp.lastname || "";
+            document.getElementById("firstname").value = emp.firstname || "";
+            document.getElementById("email").value = emp.email || "";
+            document.getElementById("address").value = emp.address || "";
+            document.getElementById("contact").value = emp.contact || "";
+            document.getElementById("national_id").value = emp.national_id || "";
+            document.getElementById("birth_date").value = emp.birth_date ? emp.birth_date.split("T")[0] : "";
+            document.getElementById("hire_date").value = emp.hire_date ? emp.hire_date.split("T")[0] : "";
+            document.getElementById("leave_balance").value = emp.leave_balance || "";
+
+            // Champs de la table informations
+            document.getElementById("department_id").value = emp.department_id || "";
+            document.getElementById("position_id").value = emp.position_id || "";
+            document.getElementById("salary").value = emp.salary || "";
+
+            // Charger les photos
+            const photoContainer = document.getElementById("photoPreview");
+            if (photoContainer) {
+                photoContainer.innerHTML = "";
+                if (data.photos && data.photos.length > 0) {
+                    data.photos.forEach(photo => {
+                        const img = document.createElement("img");
+                        img.src = "/static/uploads/" + photo.file_path; // adapte selon ton chemin
+                        img.alt = "Photo employé";
+                        img.style.width = "100px";
+                        img.style.margin = "5px";
+                        if (photo.is_main) {
+                            img.style.border = "2px solid green";
+                        }
+                        photoContainer.appendChild(img);
+                    });
+                } else {
+                    photoContainer.innerHTML = "<p>Aucune photo</p>";
+                }
+            }
+
+            // Ouvrir le modal
+            const modal = new bootstrap.Modal(document.getElementById("employeeModal"));
+            modal.show();
+        })
+        .catch(error => {
+            console.error(error);
+            alert("Erreur lors du chargement des informations de l'employé");
+        });
 }
 
-function toggleContractEnd() {
-    const contractType = document.querySelector('[name="contract_type"]').value;
-    const endDateField = document.getElementById('contract_end_date');
-    
-    if (contractType === 'CDD' || contractType === 'Stage' || contractType === 'Alternance') {
-        endDateField.required = true;
-    } else {
-        endDateField.required = false;
-        endDateField.value = '';
-    }
-}
+
+
+
+
+
+//     function viewEmployee(row) {
+//     const employeeId = row.getAttribute('data-employee-id');
+//     console.log("Voir employé :", employeeId);
+//     // Appel AJAX pour afficher les détails
+// }
+
+// function editEmployee(button) {
+//     const row = button.closest('tr');
+//     const employeeId = row.getAttribute('data-employee-id');
+//     console.log("Modifier employé :", employeeId);
+// }
+
+// function showLeaveModal(button) {
+//     const row = button.closest('tr');
+//     const employeeId = row.getAttribute('data-employee-id');
+//     console.log("Congé employé :", employeeId);
+// }
+
+// function showEvaluationModal(button) {
+//     const row = button.closest('tr');
+//     const employeeId = row.getAttribute('data-employee-id');
+//     console.log("Évaluation employé :", employeeId);
+// }
+
+// function deleteEmployee(button) {
+//     const row = button.closest('tr');
+//     const employeeId = row.getAttribute('data-employee-id');
+//     console.log("Supprimer employé :", employeeId);
+// }
+
 </script>
+
+<!-- =============================================== -->
+<!-- =============================================== -->
+<!-- CODE POUR LES DEPARTEMENT -->
+<!-- =============================================== -->
+<!-- =============================================== -->
 {% endblock %}
